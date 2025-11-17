@@ -1,6 +1,7 @@
 depreciated/
 future/
 plots/
+plots
 results/
 
 .idea/

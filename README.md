@@ -9,8 +9,6 @@ Citation
 
 Abstract:
 
-
-
 ## Hugging Face Hub
 The model is available on Hugging Face Hub: https://huggingface.co/aehrc/cxrmate-2
 
@@ -42,13 +40,6 @@ Note that you must be a credentialised user to access this dataset.
 MIMIC-CXR-JPG does not include the radiology reports and are instead included with MIMIC-CXR (the DICOM version of the dataset). To download this dataset and avoid downloading the DICOM files (which are very large), use `--reject dcm` with the wget command from https://physionet.org/content/mimic-cxr, e.g, 
 ```shell
 wget -r -N -c -np --reject dcm --user <username> --ask-password https://physionet.org/files/mimic-cxr/2.0.0/
-```
-Note that you must be a credentialised user to access this dataset.
-
-### Download MIMIC-IV-ED:
-Download the MIMIC-IV-ED dataset from https://physionet.org/content/mimic-iv-ed, e.g.,
-```shell
-wget -r -N -c -np --user <username> --ask-password https://physionet.org/files/mimic-iv-ed/2.2/
 ```
 Note that you must be a credentialised user to access this dataset.
 
