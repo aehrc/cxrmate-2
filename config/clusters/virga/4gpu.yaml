@@ -1,0 +1,3 @@
+devices: 4
+num_workers: 72
+memory: 450GB

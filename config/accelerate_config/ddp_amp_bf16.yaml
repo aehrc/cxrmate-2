@@ -1,0 +1,4 @@
+mixed_precision: bf16
+distributed_type: MULTI_GPU
+fsdp_config: {}
+# rdzv_backend: c10d

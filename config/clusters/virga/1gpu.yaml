@@ -1,0 +1,3 @@
+devices: 1
+num_workers: 10
+memory: 400GB

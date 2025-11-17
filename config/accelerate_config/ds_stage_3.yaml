@@ -1,0 +1,6 @@
+deepspeed_config:
+ deepspeed_config_file: /datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/llm_decoder/config/maira2/ds_config/stage_3.json
+ zero3_init_flag: true
+distributed_type: DEEPSPEED
+fsdp_config: {}
+use_cpu: false

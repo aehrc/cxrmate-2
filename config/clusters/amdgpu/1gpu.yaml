@@ -1,0 +1,3 @@
+devices: 1
+num_workers: 8
+memory: 100GB

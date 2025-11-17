@@ -1,0 +1,2 @@
+mixed_precision: 'no'
+distributed_type: NO
