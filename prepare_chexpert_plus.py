@@ -46,7 +46,7 @@ def prepare_dataset(chexpert_plus_dir, database_dir, num_workers=None):
         return png_paths
 
     rows = []
-    with ThreadPoolExecutor(max_workers=num_workers) as ex:
+    with ThreadPoolExecutor(max_workers=num_workers if num_workers > 0 else 1) as ex:
         futures = {ex.submit(extract_png_paths, zip_path): zip_path for zip_path in zip_paths}
         for f in tqdm(as_completed(futures), total=len(futures)):
             try:
@@ -106,6 +106,10 @@ def prepare_dataset(chexpert_plus_dir, database_dir, num_workers=None):
     assert con.sql("SELECT COUNT(*) FROM studies;").fetchone()[0] == num_rows
     num_studies = con.sql("SELECT COUNT(DISTINCT study_id) FROM studies;").fetchone()[0]
 
+    # Add views column:
+    con.sql("ALTER TABLE studies ADD COLUMN views VARCHAR;")
+    con.sql("UPDATE studies SET views = COALESCE(ap_pa, frontal_lateral);")
+
     # Group by study_id:
     con.sql(
         """
@@ -114,8 +118,7 @@ def prepare_dataset(chexpert_plus_dir, database_dir, num_workers=None):
             study_id,
             LIST(path_to_image) AS path_to_image,
             LIST(zip_path) AS zip_path,
-            LIST(frontal_lateral) as frontal_lateral,
-            LIST(ap_pa) AS ap_pa,
+            LIST(views) AS views,
             FIRST(deid_patient_id) AS deid_patient_id, 
             FIRST(patient_report_date_order) AS patient_report_date_order,
             FIRST(section_narrative) AS section_narrative,
@@ -197,8 +200,7 @@ def prepare_dataset(chexpert_plus_dir, database_dir, num_workers=None):
                             
                             row['path_to_image'][batch_idx].pop(image_idx)
                             row['zip_path'][batch_idx].pop(image_idx)
-                            row['frontal_lateral'][batch_idx].pop(image_idx)
-                            row['ap_pa'][batch_idx].pop(image_idx)
+                            row['views'][batch_idx].pop(image_idx)
                             
                             print(f'Error processing file {image_path} from {zip_path}: {e}. Removing from dataset.')
                             
@@ -206,7 +208,17 @@ def prepare_dataset(chexpert_plus_dir, database_dir, num_workers=None):
             images.append(study_images)
         row['images'] = images
         return row
-            
+    
+    # Standardise column names across the datasets:
+    con.sql("ALTER TABLE studies RENAME COLUMN section_findings TO findings;")
+    con.sql("ALTER TABLE studies RENAME COLUMN section_impression TO impression;")
+    con.sql("ALTER TABLE studies RENAME COLUMN section_comparison TO comparison;")
+    con.sql("ALTER TABLE studies RENAME COLUMN section_technique TO technique;")
+
+    con.sql("ALTER TABLE studies ADD COLUMN study_datetime TIMESTAMP;")
+    con.sql("ALTER TABLE studies ADD COLUMN prior_study_datetimes VARCHAR[];")
+    con.sql("UPDATE studies SET prior_study_datetimes = prior_study_ids;")  # This is used to sort the prior studies (not used to compute time delta).
+
     dataset_dict = {}
     for split in ['valid', 'train']:
                 
@@ -230,23 +242,20 @@ def prepare_dataset(chexpert_plus_dir, database_dir, num_workers=None):
                 return ''.join(part.capitalize() if i % 2 == 0 else part
                             for i, part in enumerate(parts))
             return text
-        df['section_impression'] = df['section_impression'].apply(to_sentence_case)
+        df['impression'] = df['impression'].apply(to_sentence_case)
             
         dataset_dict[split] = datasets.Dataset.from_pandas(df)
-        cache_dir = os.path.join(database_dir, '.cache')
-        Path(cache_dir).mkdir(parents=True, exist_ok=True)
         dataset_dict[split] = dataset_dict[split].map(
             load_image,
             num_proc=num_workers,
-            writer_batch_size=8,
+            writer_batch_size=1,
             batched=True,
-            batch_size=8,
+            batch_size=1,
             keep_in_memory=False,
-            cache_file_name=os.path.join(cache_dir, f'.{split}'),
             load_from_cache_file=False,
+            cache_file_name=os.path.join(database_dir, f'cache_{split}.arrow'),
         )
         dataset_dict[split].cleanup_cache_files()
-        shutil.rmtree(cache_dir)
         
     dataset = datasets.DatasetDict(dataset_dict)
     dataset.save_to_disk(os.path.join(database_dir, 'chexpert_plus_dataset'))
@@ -254,7 +263,11 @@ def prepare_dataset(chexpert_plus_dir, database_dir, num_workers=None):
     con.close()
 
 if __name__ == '__main__':
-    chexpert_plus_dir = '/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/work/archive/chexpertplus'  # Where the CheXpert Plus DICOM directory, PNG directory, and df_chexpert_plus_240401.csv file are stored.
+    chexpert_plus_dir = '/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/work/data/chexpertplus'  # Where the CheXpert Plus DICOM directory, PNG directory, and df_chexpert_plus_240401.csv file are stored.
     database_dir = '/scratch3/nic261/database/cxrmate2'  # Where the resultant database will be stored.
 
-    prepare_dataset(chexpert_plus_dir=chexpert_plus_dir, database_dir=database_dir)
+    prepare_dataset(
+        chexpert_plus_dir=chexpert_plus_dir, 
+        database_dir=database_dir,
+        num_workers=4,
+    )

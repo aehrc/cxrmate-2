@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 from builtins import len
+from csv import writer
 from glob import glob
 from pathlib import Path
 
@@ -138,8 +139,8 @@ class PrepareDataset:
                 LIST(ProcedureCodeSequence_CodeMeaning) AS ProcedureCodeSequence_CodeMeaning,
                 LIST(ViewCodeSequence_CodeMeaning) AS ViewCodeSequence_CodeMeaning,
                 LIST(PatientOrientationCodeSequence_CodeMeaning) AS PatientOrientationCodeSequence_CodeMeaning,
-                LIST(study_datetime) AS study_datetime,
-                MAX(study_datetime) AS latest_study_datetime,
+                -- See info on tag (0008,0030) for why min is used: https://dicom.nema.org/medical/dicom/current/output/html/part03.html#table_C.7-3
+                MIN(study_datetime) AS study_datetime
             FROM studies
             GROUP BY study_id;
             """
@@ -205,15 +206,15 @@ class PrepareDataset:
             CREATE OR REPLACE TABLE prior_studies AS
             WITH sorted AS (
                 SELECT *,
-                    ROW_NUMBER() OVER (PARTITION BY subject_id ORDER BY latest_study_datetime) AS rn
+                    ROW_NUMBER() OVER (PARTITION BY subject_id ORDER BY study_datetime) AS rn
                 FROM studies
             ),
             aggregated AS (
                 SELECT subject_id,
                     study_id,
-                    latest_study_datetime,
+                    study_datetime,
                     ARRAY_AGG(study_id) OVER (PARTITION BY subject_id ORDER BY rn ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prior_study_ids,
-                    ARRAY_AGG(latest_study_datetime) OVER (PARTITION BY subject_id ORDER BY rn ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prior_study_datetimes
+                    ARRAY_AGG(study_datetime) OVER (PARTITION BY subject_id ORDER BY rn ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prior_study_datetimes
                 FROM sorted
             )
             SELECT * 
@@ -239,19 +240,18 @@ class PrepareDataset:
         assert len(mimic_cxr_jpg_dir), f'Multiple directories matched the pattern {pattern}: {mimic_cxr_jpg_dir}. Only one is required.'
         mimic_cxr_jpg_dir = mimic_cxr_jpg_dir[0]
         
-        def load_image(row):
-            images = []
-            for dicom_ids, study_id, subject_id in zip(row['dicom_id'], row['study_id'], row['subject_id'], strict=True):
-                study_images = []
-                for dicom_id in dicom_ids: 
-                    image_path = mimic_cxr_image_path(mimic_cxr_jpg_dir, subject_id, study_id, dicom_id, 'jpg')
-                    with open(image_path, 'rb') as f:
-                        image = f.read()
-                    study_images.append(image)
-                images.append(study_images)
-            row['images'] = images
-            return row
+        def load_image(example):
+            example['images'] = []
+            for dicom_id in example['dicom_id']: 
+                image_path = mimic_cxr_image_path(mimic_cxr_jpg_dir, example['subject_id'], example['study_id'], dicom_id, 'jpg')
+                with open(image_path, 'rb') as f:
+                    image = f.read()
+                example['images'].append(image)
+            return example
         
+        # Standardise column names across the datasets:
+        self.con.sql("ALTER TABLE studies RENAME COLUMN ViewPosition TO views;")
+
         dataset_dict = {}
         for split in self.splits:
             df = self.con.sql(f"FROM studies WHERE split = '{split}'").df()
@@ -267,21 +267,16 @@ class PrepareDataset:
             del df
             gc.collect()
 
-            cache_dir = os.path.join(database_dir, '.cache')
-            Path(cache_dir).mkdir(parents=True, exist_ok=True)
             dataset_dict[split] = dataset_dict[split].map(
                 load_image,
                 num_proc=self.num_workers,
-                writer_batch_size=1,
-                batched=True,
-                batch_size=1,
                 keep_in_memory=False,
-                cache_file_name=os.path.join(cache_dir, f'.{split}'),
                 load_from_cache_file=False,
+                cache_file_name=os.path.join(self.database_dir, f'cache_{split}.arrow'),
+                writer_batch_size=1,
             )
             dataset_dict[split].cleanup_cache_files()
             gc.collect()
-            shutil.rmtree(cache_dir)
             
         dataset = datasets.DatasetDict(dataset_dict)
         dataset.save_to_disk(os.path.join(database_dir, 'mimic_cxr_jpg_dataset'))
@@ -289,13 +284,13 @@ class PrepareDataset:
         self.con.close()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
 
-    physionet_dir = '/datasets/work/hb-mlaifsp-mm/work/archive/physionet.org/files'  # Where MIMIC-CXR, MIMIC-CXR-JPG, and MIMIC-IV-ED are stored.
+    physionet_dir = '/datasets/work/hb-mlaifsp-mm/work/data/physionet.org/files'  # Where MIMIC-CXR, MIMIC-CXR-JPG, and MIMIC-IV-ED are stored.
     database_dir = f'/scratch3/nic261/database/cxrmate2'  # Where the resultant database will be stored.
 
     PrepareDataset(
         physionet_dir=physionet_dir, 
         database_dir=database_dir, 
-        num_workers=None if os.environ.get('SLURM_JOB_ID') else 1,
+        num_workers=4,
     )()

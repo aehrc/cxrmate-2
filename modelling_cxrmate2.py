@@ -93,13 +93,17 @@ class CXRMate2ForConditionalGeneration(CXRMate2PreTrainedModel, GenerationMixin)
         
         self.permute_encoder_last_hidden_state = config.permute_encoder_last_hidden_state
         
-        self.vision_tower = AutoBackbone.from_config(config.vision_config)
+        self.vision_tower = AutoBackbone.from_config(
+            config.vision_config,
+            torch_dtype=config.vision_config.torch_dtype,
+        )
         self.multi_modal_projector = CXRMate2QAdapter(config)
         self.vocab_size = config.text_config.vocab_size
         self.language_model = AutoModelForCausalLM.from_config(
             config.text_config,
             attn_implementation=config._attn_implementation,
             trust_remote_code=True,
+            torch_dtype=config.text_config.torch_dtype,
         )
                 
         self.time_delta_encoder = CXRMate2FNNEncoder(

@@ -41,7 +41,7 @@ def prepare_dataset(database_dir, num_workers=None):
 
     def load_image(row):
         images = []
-        for subject_id, accession_number, study_id in zip(row['subject_id'], row['AccessionNumber'], row['StudyInstanceUid'], strict=True):
+        for subject_id, accession_number, study_id in zip(row['subject_id'], row['AccessionNumber'], row['study_id'], strict=True):
             study_images = []
             image_paths = glob.glob(os.path.join(database_dir, 'rexgradient_images', 'deid_png', subject_id[1:], accession_number, 'studies', study_id, 'series', '*', 'instances', '*'))
             for image_path in image_paths:
@@ -98,22 +98,30 @@ def prepare_dataset(database_dir, num_workers=None):
             axis=1
         )
         df = df.reset_index(drop=True)
-                            
+
+        # Standardise column names across the datasets:
+        df = df.rename(columns={
+            'Findings': 'findings',
+            'Impression': 'impression',
+            'Indication': 'indication',
+            'Comparison': 'comparison',
+            'StudyDescription': 'technique',
+            'StudyInstanceUid': 'study_id',
+            'StudyDate': 'study_datetime'
+        })   
+
         dataset_dict[split] = datasets.Dataset.from_pandas(df)
-        cache_dir = os.path.join(database_dir, '.cache')
-        Path(cache_dir).mkdir(parents=True, exist_ok=True)
         dataset_dict[split] = dataset_dict[split].map(
             load_image,
             num_proc=num_workers,
-            writer_batch_size=8,
+            writer_batch_size=1,
             batched=True,
-            batch_size=8,
+            batch_size=1,
             keep_in_memory=False,
-            cache_file_name=os.path.join(cache_dir, f'.{split}'),
             load_from_cache_file=False,
+            cache_file_name=os.path.join(database_dir, f'cache_{split}.arrow'),
         )
         dataset_dict[split].cleanup_cache_files()
-        shutil.rmtree(cache_dir)
         
     dataset = datasets.DatasetDict(dataset_dict)
     dataset.save_to_disk(os.path.join(database_dir, 'rexgradient_160k_dataset'))
@@ -121,9 +129,7 @@ def prepare_dataset(database_dir, num_workers=None):
 if __name__ == '__main__':
     database_dir = '/scratch3/nic261/database/cxrmate2'  # Where the resultant database will be stored.
 
-    num_workers = None if os.getenv('SLURM_JOB_ID') is not None else 1
-
     prepare_dataset(
         database_dir=database_dir,
-        num_workers=num_workers,
+        num_workers=4,
     )

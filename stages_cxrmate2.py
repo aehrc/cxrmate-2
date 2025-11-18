@@ -223,9 +223,9 @@ class Stages(BaseStages):
             # MIMIC-CXR:
             if 'mimic_cxr' in self.train_datasets:
                 train_set = dataset['train']
-                train_set = train_set.rename_column('ViewPosition', 'views')
-                train_set = train_set.rename_column('study_datetime', 'study_datetimes')
-                train_set = train_set.rename_column('latest_study_datetime', 'study_datetime')
+                # train_set = train_set.rename_column('ViewPosition', 'views')
+                # train_set = train_set.rename_column('study_datetime', 'study_datetimes')
+                # train_set = train_set.rename_column('latest_study_datetime', 'study_datetime')
 
                 df = pd.DataFrame({'study_id': train_set['study_id'], 'findings': train_set['findings'], 'impression': train_set['impression']})
 
@@ -253,18 +253,18 @@ class Stages(BaseStages):
             # CheXpert Plus (history section exists as 'history' alread in the dataset):
             if 'chexpert_plus' in self.train_datasets:
                 train_set_chexpert_plus = dataset_chexpert_plus['train']     
-                train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_findings', 'findings')
-                train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_impression', 'impression')
-                train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_comparison', 'comparison')
-                train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_technique', 'technique')
-                views = [
-                    [c if c is not None else d for c, d in zip(a, b, strict=True)]
-                    for a, b in zip(train_set_chexpert_plus['ap_pa'], train_set_chexpert_plus['frontal_lateral'], strict=True)
-                ]
-                train_set_chexpert_plus = train_set_chexpert_plus.add_column('views', views)
-                train_set_chexpert_plus = train_set_chexpert_plus.add_column('study_datetime', [None] * len(train_set_chexpert_plus))
-                train_set_chexpert_plus = train_set_chexpert_plus.add_column('indication', [None] * len(train_set_chexpert_plus))
-                train_set_chexpert_plus = train_set_chexpert_plus.add_column('prior_study_datetimes', train_set_chexpert_plus['prior_study_ids'])
+                # train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_findings', 'findings')
+                # train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_impression', 'impression')
+                # train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_comparison', 'comparison')
+                # train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_technique', 'technique')
+                # views = [
+                #     [c if c is not None else d for c, d in zip(a, b, strict=True)]
+                #     for a, b in zip(train_set_chexpert_plus['ap_pa'], train_set_chexpert_plus['frontal_lateral'], strict=True)
+                # ]
+                # train_set_chexpert_plus = train_set_chexpert_plus.add_column('views', views)
+                # train_set_chexpert_plus = train_set_chexpert_plus.add_column('study_datetime', [None] * len(train_set_chexpert_plus))
+                # train_set_chexpert_plus = train_set_chexpert_plus.add_column('indication', [None] * len(train_set_chexpert_plus))
+                # train_set_chexpert_plus = train_set_chexpert_plus.add_column('prior_study_datetimes', train_set_chexpert_plus['prior_study_ids'])
                 df = pd.DataFrame({'findings': train_set_chexpert_plus['findings'], 'impression': train_set_chexpert_plus['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -288,13 +288,13 @@ class Stages(BaseStages):
             # ReXgradient-160K:
             if 'rexgradient' in self.train_datasets:
                 train_set_rexgradient = dataset_rexgradient['train']
-                train_set_rexgradient = train_set_rexgradient.rename_column('Findings', 'findings')
-                train_set_rexgradient = train_set_rexgradient.rename_column('Impression', 'impression')
-                train_set_rexgradient = train_set_rexgradient.rename_column('Indication', 'indication')
-                train_set_rexgradient = train_set_rexgradient.rename_column('Comparison', 'comparison')
-                train_set_rexgradient = train_set_rexgradient.rename_column('StudyDescription', 'technique')
-                train_set_rexgradient = train_set_rexgradient.rename_column('StudyInstanceUid', 'study_id')
-                train_set_rexgradient = train_set_rexgradient.rename_column('StudyDate', 'study_datetime')
+                # train_set_rexgradient = train_set_rexgradient.rename_column('Findings', 'findings')
+                # train_set_rexgradient = train_set_rexgradient.rename_column('Impression', 'impression')
+                # train_set_rexgradient = train_set_rexgradient.rename_column('Indication', 'indication')
+                # train_set_rexgradient = train_set_rexgradient.rename_column('Comparison', 'comparison')
+                # train_set_rexgradient = train_set_rexgradient.rename_column('StudyDescription', 'technique')
+                # train_set_rexgradient = train_set_rexgradient.rename_column('StudyInstanceUid', 'study_id')
+                # train_set_rexgradient = train_set_rexgradient.rename_column('StudyDate', 'study_datetime')
                 df = pd.DataFrame({'findings': train_set_rexgradient['findings'], 'impression': train_set_rexgradient['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -343,9 +343,9 @@ class Stages(BaseStages):
         if self.validate:
 
             val_set = dataset['validate']
-            val_set = val_set.rename_column('ViewPosition', 'views')
-            val_set = val_set.rename_column('study_datetime', 'study_datetimes')
-            val_set = val_set.rename_column('latest_study_datetime', 'study_datetime')
+            # val_set = val_set.rename_column('ViewPosition', 'views')
+            # val_set = val_set.rename_column('study_datetime', 'study_datetimes')
+            # val_set = val_set.rename_column('latest_study_datetime', 'study_datetime')
             df = pd.DataFrame({'study_id': val_set['study_id'], 'findings': val_set['findings'], 'impression': val_set['impression']})
             if self.findings_and_impression_strategy == 'or':
                 indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -385,9 +385,9 @@ class Stages(BaseStages):
             # MIMIC-CXR:
             if 'mimic_cxr' in self.test_datasets:
                 test_set = dataset['test']
-                test_set = test_set.rename_column('ViewPosition', 'views')
-                test_set = test_set.rename_column('study_datetime', 'study_datetimes')
-                test_set = test_set.rename_column('latest_study_datetime', 'study_datetime')
+                # test_set = test_set.rename_column('ViewPosition', 'views')
+                # test_set = test_set.rename_column('study_datetime', 'study_datetimes')
+                # test_set = test_set.rename_column('latest_study_datetime', 'study_datetime')
                 df = pd.DataFrame({'study_id': test_set['study_id'], 'findings': test_set['findings'], 'impression': test_set['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -424,20 +424,20 @@ class Stages(BaseStages):
             # CheXpert Plus:
             if 'chexpert_plus' in self.test_datasets:
                 test_set_chexpert_plus = dataset_chexpert_plus['valid']     
-                test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_findings', 'findings')
-                test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_impression', 'impression')
-                test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_comparison', 'comparison')
-                test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_technique', 'technique')
+                # test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_findings', 'findings')
+                # test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_impression', 'impression')
+                # test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_comparison', 'comparison')
+                # test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_technique', 'technique')
 
-                views = [
-                    [c if c is not None else d for c, d in zip(a, b, strict=True)]
-                    for a, b in zip(test_set_chexpert_plus['ap_pa'], test_set_chexpert_plus['frontal_lateral'], strict=True)
-                ]
-                test_set_chexpert_plus = test_set_chexpert_plus.add_column('views', views)
+                # views = [
+                #     [c if c is not None else d for c, d in zip(a, b, strict=True)]
+                #     for a, b in zip(test_set_chexpert_plus['ap_pa'], test_set_chexpert_plus['frontal_lateral'], strict=True)
+                # ]
+                # test_set_chexpert_plus = test_set_chexpert_plus.add_column('views', views)
 
-                test_set_chexpert_plus = test_set_chexpert_plus.add_column('study_datetime', [None] * len(test_set_chexpert_plus))
-                test_set_chexpert_plus = test_set_chexpert_plus.add_column('indication', [None] * len(test_set_chexpert_plus))
-                test_set_chexpert_plus = test_set_chexpert_plus.add_column('prior_study_datetimes', test_set_chexpert_plus['prior_study_ids'])
+                # test_set_chexpert_plus = test_set_chexpert_plus.add_column('study_datetime', [None] * len(test_set_chexpert_plus))
+                # test_set_chexpert_plus = test_set_chexpert_plus.add_column('indication', [None] * len(test_set_chexpert_plus))
+                # test_set_chexpert_plus = test_set_chexpert_plus.add_column('prior_study_datetimes', test_set_chexpert_plus['prior_study_ids'])
                 df = pd.DataFrame({'findings': test_set_chexpert_plus['findings'], 'impression': test_set_chexpert_plus['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -473,13 +473,13 @@ class Stages(BaseStages):
             # ReXgradient-160K:
             if 'rexgradient' in self.test_datasets:
                 test_set_rexgradient = dataset_rexgradient['test']
-                test_set_rexgradient = test_set_rexgradient.rename_column('Findings', 'findings')
-                test_set_rexgradient = test_set_rexgradient.rename_column('Impression', 'impression')
-                test_set_rexgradient = test_set_rexgradient.rename_column('Indication', 'indication')
-                test_set_rexgradient = test_set_rexgradient.rename_column('Comparison', 'comparison')
-                test_set_rexgradient = test_set_rexgradient.rename_column('StudyDescription', 'technique')
-                test_set_rexgradient = test_set_rexgradient.rename_column('StudyInstanceUid', 'study_id')
-                test_set_rexgradient = test_set_rexgradient.rename_column('StudyDate', 'study_datetime')
+                # test_set_rexgradient = test_set_rexgradient.rename_column('Findings', 'findings')
+                # test_set_rexgradient = test_set_rexgradient.rename_column('Impression', 'impression')
+                # test_set_rexgradient = test_set_rexgradient.rename_column('Indication', 'indication')
+                # test_set_rexgradient = test_set_rexgradient.rename_column('Comparison', 'comparison')
+                # test_set_rexgradient = test_set_rexgradient.rename_column('StudyDescription', 'technique')
+                # test_set_rexgradient = test_set_rexgradient.rename_column('StudyInstanceUid', 'study_id')
+                # test_set_rexgradient = test_set_rexgradient.rename_column('StudyDate', 'study_datetime')
                 df = pd.DataFrame({'findings': test_set_rexgradient['findings'], 'impression': test_set_rexgradient['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.

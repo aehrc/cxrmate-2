@@ -14,7 +14,7 @@ cluster_manager_script_commands: [
   cd /datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2,
   module load apptainer, 
   IMAGE_PATH=/scratch3/nic261/images/rocm_pytorch-training_v25.4.sif, 
-  ACCELERATE_EXEC_PATH=/scratch3/nic261/environments/amdgpu_cxrmate2/bin/accelerate,
+  ACCELERATE_EXEC_PATH=/scratch3/nic261/environments/cxrmate2_amdgpu_final/bin/accelerate,
   'export APPTAINER_BINDPATH="/datasets,/scratch3"',
   'export HIP_FORCE_DEV_KERNARG=1',
   'export NCCL_MIN_NCHALLENS=112',
@@ -22,4 +22,4 @@ cluster_manager_script_commands: [
   'export PYTORCH_ROCM_ARCH=gfx942',
 ]
 accelerate_exec_path: "apptainer exec $IMAGE_PATH $ACCELERATE_EXEC_PATH"
-venv_path: /scratch3/nic261/environments/amdgpu_cxrmate2/bin/activate
+venv_path: /scratch3/nic261/environments/cxrmate2_amdgpu_final/bin/activate
