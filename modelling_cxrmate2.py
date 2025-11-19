@@ -315,13 +315,28 @@ class CXRMate2ForConditionalGeneration(CXRMate2PreTrainedModel, GenerationMixin)
             # Validate that the findings token type identifier is used for sep_token_id:
             mask = input_ids[:, -1] == self.config.sep_token_id
             if mask.any():
-                assert (model_inputs['token_type_ids'][mask] == self.config.findings_token_type_id).all()
-            
+                invalid = ~(model_inputs['token_type_ids'][mask] == self.config.findings_token_type_id)
+                if invalid.any():
+                    warnings.warn(
+                        'Token type for sep_token_id must be findings_token_type_id',
+                        UserWarning,
+                        stacklevel=2
+                    )
+                    print(f'Warning: token type for sep_token_id must be findings_token_type_id: {self.config.findings_token_type_id}, got {model_inputs["token_type_ids"][mask]} instead for input_ids: {input_ids[mask]}.')
+                    print('This is likely due to more than one sep_token_id being generated. This is only an issue if not handled during reinforcement learning (i.e., a loss of zero needs to be set for candidates with more than one sep_token_id).')
+
             # Validate that the impression token type identifier is used after sep_token_id:
             mask = (input_ids[:, :-1] == self.config.sep_token_id).any(dim=1)
             if mask.any():
-                assert (model_inputs['token_type_ids'][mask] == self.config.impression_token_type_id).all()
-   
+                invalid = ~(model_inputs['token_type_ids'][mask] == self.config.impression_token_type_id)
+                if invalid.any():
+                    warnings.warn(
+                        'Token type after sep_token_id must be impression_token_type_id',
+                        UserWarning,
+                        stacklevel=2
+                    )
+                    print(f'Warning: token type after sep_token_id must be impression_token_type_id: {self.config.impression_token_type_id}, got {model_inputs["token_type_ids"][mask]} instead for input_ids: {input_ids[mask]}.')
+
         model_inputs.pop('initial_attention_mask', None)
             
         return model_inputs
