@@ -389,3 +389,35 @@ def copy_dir_ignoring_extensions(source_dir, destination_dir, ignore_extensions)
                 src_file = os.path.join(root, file)
                 dest_file = os.path.join(dest_path, file)
                 shutil.copy2(src_file, dest_file)
+
+
+if __name__ == '__main__':
+    import sys
+    from pathlib import Path
+
+    from command_line_arguments import read_command_line_arguments
+
+    cmd_line_args = read_command_line_arguments()
+    args = load_config_and_update_args(cmd_line_args=cmd_line_args)
+
+    if not getattr(args, 'stages_module', None): raise ValueError('stages_module must be provided.')
+    if not Path(args.stages_module).exists(): raise FileNotFoundError(f'{args.stages_module} does not exist.')
+
+    stages_module_path = Path(args.stages_module).resolve()
+    if not stages_module_path.suffix == ".py":
+        raise ValueError(f"{stages_module_path} is not a Python file.")
+    sys.path.insert(0, str(stages_module_path.parent))
+
+    if not getattr(args, 'stages_definition', None): 
+        stages_definition = 'Stages'
+    else:
+        stages_definition = args.stages_definition
+
+    try:
+        Stages = importer(definition=stages_definition, module=args.stages_module)
+    except ImportError as e:
+        raise ImportError(f"Failed to import stages definition '{stages_definition}' from module '{args.stages_module}': {e}.")
+
+    args = Stages.get_args_and_submit_job(args)
+    stages = Stages(**args.__dict__)
+    stages()
