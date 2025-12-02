@@ -12,7 +12,7 @@ completions_top_k: 0
 completions_top_p: 1.0
 completions_temperature: 1.0
 
-num_epochs: 1
+num_epochs: 2
 
 reward_weights: [0.3, 0.3, 0.3, 0.1]
 

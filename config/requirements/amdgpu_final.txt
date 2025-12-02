@@ -14,11 +14,15 @@ omegaconf
 opencv-python
 pandas
 peft
+pingouin
+plotnine
 protobuf
 pydicom
+pypdf
 radgraph
 ratescore
 rouge-score
+seaborn
 sentence-transformers
 sentencepiece
 stanza

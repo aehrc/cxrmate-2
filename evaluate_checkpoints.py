@@ -1,23 +1,24 @@
-from datetime import datetime
-from glob import glob
+import argparse
 import inspect
 import io
+import random
 import re
+import sys
+from datetime import datetime
+from glob import glob
+
+import accelerate
+import pandas as pd
 import torch
 import transformers
-from PIL import Image
-import random
-from stages_cxrmate2 import Stages
-import accelerate
-from utils import CSVTracker
-import argparse
-from transformers.feature_extraction_utils import BatchFeature
 from hydra import compose, initialize_config_dir
-from omegaconf import OmegaConf
-import pandas as pd
 from loggers import ReportLogger, ReportTokenIdentifiersLogger, SizeLogger
+from omegaconf import OmegaConf
+from PIL import Image
+from stages_cxrmate2 import Stages
 from torchvision.transforms import v2
-import sys
+from transformers.feature_extraction_utils import BatchFeature
+from utils import CSVTracker
 
 
 class GenerateStages(Stages):
@@ -657,9 +658,28 @@ if __name__ == '__main__':
             )
         config.pop('test_datasets', None)
 
+        # if args.generate:
+        #     CXRMate2GenerateStages(
+        #         exp_trial_dir=f'/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/scratch3/experiments/cxrmate2/final/001_grpo/trial_{args.trial}',
+        #         trial=int(args.trial),
+        #         test=True,
+        #         submit=False,
+        #         debug=args.debug,
+        #         limit_test_samples=args.limit_test_samples,
+        #         test_datasets=test_datasets,
+        #         **config,
+        #     )()
+        # elif args.evaluate:
+        #     EvalGeneratedStages(
+        #         exp_trial_dir=f'/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/scratch3/experiments/cxrmate2/final/001_grpo/trial_{args.trial}',
+        #         debug=args.debug,
+        #         limit_test_samples=args.limit_test_samples,
+        #         test_datasets=test_datasets,
+        #     )()
+
         if args.generate:
             CXRMate2GenerateStages(
-                exp_trial_dir=f'/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/scratch3/experiments/cxrmate2/final/001_grpo/trial_{args.trial}',
+                exp_trial_dir=f'/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/scratch3/experiments/cxrmate2/final/002_grpo_rev_a/trial_{args.trial}',
                 trial=int(args.trial),
                 test=True,
                 submit=False,
@@ -670,7 +690,7 @@ if __name__ == '__main__':
             )()
         elif args.evaluate:
             EvalGeneratedStages(
-                exp_trial_dir=f'/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/scratch3/experiments/cxrmate2/final/001_grpo/trial_{args.trial}',
+                exp_trial_dir=f'/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/scratch3/experiments/cxrmate2/final/002_grpo_rev_a/trial_{args.trial}',
                 debug=args.debug,
                 limit_test_samples=args.limit_test_samples,
                 test_datasets=test_datasets,
@@ -811,4 +831,5 @@ if __name__ == '__main__':
         )()
     
     else:
+        raise SystemExit(f"Unknown model '{args.model}'. Available: MAIRA-2")
         raise SystemExit(f"Unknown model '{args.model}'. Available: MAIRA-2")
