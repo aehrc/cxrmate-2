@@ -154,10 +154,13 @@ class CXRMate2Processor(transformers.ProcessorMixin):
         if technique is not None and not isinstance(technique, list):
             technique = [technique]
         if prior_findings is not None and not isinstance(prior_findings, list):
+            prior_findings = [[prior_findings]]
+        if prior_findings is not None and isinstance(prior_findings, list) and not isinstance(prior_findings[0], list):
             prior_findings = [prior_findings]
         if prior_impression is not None and not isinstance(prior_impression, list):
+            prior_impression = [[prior_impression]]
+        if prior_impression is not None and isinstance(prior_impression, list) and not isinstance(prior_impression[0], list):
             prior_impression = [prior_impression]
-
         if study_datetime is not None and not isinstance(study_datetime, list):
             study_datetime = [study_datetime]
 

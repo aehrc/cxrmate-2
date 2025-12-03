@@ -1,9 +1,11 @@
 import copy
 import glob
 import importlib
+import json
 import os
 import re
 import shutil
+import tempfile
 import warnings
 from argparse import Namespace
 from pathlib import Path
@@ -14,9 +16,12 @@ import pandas as pd
 import torch
 import yaml
 from accelerate.tracking import GeneralTracker, on_main_process
+from huggingface_hub import HfApi, hf_hub_download
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
+from tokenizers import Tokenizer
 from torchmetrics import Metric
+from transformers import PreTrainedTokenizerFast
 
 try:
     from slurm import SlurmSubmit
@@ -389,6 +394,61 @@ def copy_dir_ignoring_extensions(source_dir, destination_dir, ignore_extensions)
                 src_file = os.path.join(root, file)
                 dest_file = os.path.join(dest_path, file)
                 shutil.copy2(src_file, dest_file)
+
+
+def rename_added_tokens(repo_id, token_map, repo_type='model'):
+
+    path = hf_hub_download(repo_id=repo_id, filename='tokenizer.json', repo_type=repo_type)
+    with open(path, 'r', encoding='utf-8') as f:
+        tokenizer_json = json.load(f)
+
+    path = hf_hub_download(repo_id=repo_id, filename='tokenizer_config.json', repo_type=repo_type)
+    with open(path, 'r', encoding='utf-8') as f:
+        tokenizer_config_json = json.load(f)
+
+    path = hf_hub_download(repo_id=repo_id, filename='special_tokens_map.json', repo_type=repo_type)
+    with open(path, 'r', encoding='utf-8') as f:
+        special_tokens_map_json = json.load(f)
+
+    added_tokens = tokenizer_json['added_tokens']
+    added_tokens_decoder = tokenizer_config_json['added_tokens_decoder']
+
+    for old, new in token_map.items():
+
+        for idx, token_dict in enumerate(added_tokens):
+            if token_dict['content'] == old:
+                added_tokens[idx]['content'] = new
+                break
+
+        for k, v in tokenizer_config_json.items():
+            if v == old:
+                tokenizer_config_json[k] = new
+                break
+
+        for k, v in added_tokens_decoder.items():
+            if v['content'] == old:
+                added_tokens_decoder[k]['content'] = new
+                break
+
+        for k, v in special_tokens_map_json.items():
+            if v == old:
+                special_tokens_map_json[k] = new
+                break
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        with open(os.path.join(tmp_dir, 'tokenizer.json'), 'w', encoding='utf-8') as f:
+            json.dump(tokenizer_json, f, ensure_ascii=False, indent=2)
+
+        with open(os.path.join(tmp_dir, 'tokenizer_config.json'), 'w', encoding='utf-8') as f:
+            json.dump(tokenizer_config_json, f, ensure_ascii=False, indent=2)
+
+        with open(os.path.join(tmp_dir, 'special_tokens_map.json'), 'w', encoding='utf-8') as f:
+            json.dump(special_tokens_map_json, f, ensure_ascii=False, indent=2)
+
+        tokenizer = PreTrainedTokenizerFast.from_pretrained(tmp_dir)
+
+    tokenizer.push_to_hub(repo_id=repo_id)
+
 
 
 if __name__ == '__main__':

@@ -121,6 +121,11 @@ class BaseStages:
         self.upload_ckpt_dir = upload_ckpt_dir
         self.hf_hub_alias = hf_hub_alias
 
+        if self.upload:
+            assert self.upload_ckpt_dir is not None, '[__init__]: "upload_ckpt_dir" must be specified when "upload" is True.'
+            assert self.hf_hub_alias is not None, '[__init__]: "hf_hub_alias" must be specified when "upload" is True.'
+            assert not self.train and not self.validate and not self.test, '[__init__]: "train", "validate", and "test" must be False when "upload" is True.'
+
         if self.validate is None:
             self.validate = self.train or self.validate_remaining_ckpts or self.validate_ckpt_dir
         
@@ -216,27 +221,32 @@ class BaseStages:
         self.step_log_path = os.path.join(self.exp_trial_dir, 'step_log.csv')
 
     def init_modules(self):
-        self.init_dataloaders()
-        self.init_processor()
-        self.init_model()
-        if isinstance(self.model, PeftModel) or hasattr(self.model, 'peft_config'):
-            assert hasattr(self, 'peft_config'), '[__init_modules__]: a "peft_config" attribute is needed to load a PeftModel model checkpoint.'
-        if (self.last_epoch is None and self.train) or self.test_pretrained:
-            self.warm_start()
-        if self.train:
-            self.init_optimisers()
-        if self.train or self.validate or self.test:
-            self.accelerate_prepare()
-        self.post_prepare()
-        self.init_metrics()  
 
-        if self.debug:
-            try:
-                self.model.processor = self.processor
-            except Exception:
-                pass
+        if self.upload:
+            self.init_processor()
+            self.init_model()
+        else:
+            self.init_dataloaders()
+            self.init_processor()
+            self.init_model()
+            if isinstance(self.model, PeftModel) or hasattr(self.model, 'peft_config'):
+                assert hasattr(self, 'peft_config'), '[__init_modules__]: a "peft_config" attribute is needed to load a PeftModel model checkpoint.'
+            if (self.last_epoch is None and self.train) or self.test_pretrained:
+                self.warm_start()
+            if self.train:
+                self.init_optimisers()
+            if self.train or self.validate or self.test:
+                self.accelerate_prepare()
+            self.post_prepare()
+            self.init_metrics()  
 
-        self.log_details()
+            if self.debug:
+                try:
+                    self.model.processor = self.processor
+                except Exception:
+                    pass
+
+            self.log_details()
 
         self.modules_initialised = True
         

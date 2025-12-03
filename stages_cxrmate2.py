@@ -19,6 +19,7 @@ from modelling_cxrmate2 import CXRMate2ForConditionalGeneration
 from processing_cxrmate2 import CXRMate2Processor
 from torch.utils.data import ConcatDataset, DataLoader, Subset
 from tqdm import tqdm
+from utils import rename_added_tokens
 
 
 class Stages(BaseStages):
@@ -147,7 +148,6 @@ class Stages(BaseStages):
             findings_token_type_id=self.processor.tokenizer.convert_tokens_to_ids(self.processor.token_type_to_token['findings']),
             impression_token_type_id=self.processor.tokenizer.convert_tokens_to_ids(self.processor.token_type_to_token['impression']),
             missing_time_delta_token_id=self.processor.tokenizer.convert_tokens_to_ids('<|reserved_special_token_4|>'),
-            image_token=self.processor.image_token,
             image_token_index=self.processor.tokenizer.convert_tokens_to_ids(self.processor.image_token),
             _attn_implementation = 'eager',
             generate_findings_token_id=self.processor.tokenizer.convert_tokens_to_ids(self.processor.generate_findings_token),
@@ -1022,14 +1022,68 @@ class Stages(BaseStages):
         transformers.AutoConfig.register('cxrmate-2', CXRMate2Config)
         transformers.AutoModelForCausalLM.register(CXRMate2Config, CXRMate2ForConditionalGeneration)
 
+        self.processor.mimic_cxr_normalisation = True   # Set for inference.
+
+        token_map = {
+            '<|reserved_special_token_0|>': '<|image|>',
+            '<|reserved_special_token_1|>': '<|generate_findings|>',
+            '<|reserved_special_token_2|>': '<|generate_impression|>',
+
+            '<|reserved_special_token_4|>': '<|time_delta_token_type|>',
+
+            '<|reserved_special_token_16|>': '<|image_token_type|>',
+            '<|reserved_special_token_17|>': '<|indication_token_type|>',
+            '<|reserved_special_token_18|>': '<|history_token_type|>',
+            '<|reserved_special_token_19|>': '<|comparison_token_type|>',
+            '<|reserved_special_token_20|>': '<|technique_token_type|>',
+            '<|reserved_special_token_21|>': '<|findings_token_type|>',
+            '<|reserved_special_token_22|>': '<|impression_token_type|>',
+            '<|reserved_special_token_23|>': '<|prior_image_token_type|>',
+            '<|reserved_special_token_24|>': '<|prior_findings_token_type|>',
+            '<|reserved_special_token_25|>': '<|prior_impression_token_type|>',
+
+            '<|reserved_special_token_64|>': '<|sep|>',
+            '<|reserved_special_token_65|>': '<|pad|>',
+        }
+
+        self.processor.image_token = '<|image|>'
+        self.processor.generate_findings_token = '<|generate_findings|>'
+        self.processor.generate_impression_token = '<|generate_impression|>'
+        self.processor.token_type_to_token = {k:token_map[v] for k, v in self.processor.token_type_to_token.items()}
+
+        used_ids = set()
+        for k in token_map.keys():
+            idx = int(k.split('_')[-1].rstrip('|>'))
+            used_ids.add(idx)
+
+        def next_free_id(start=0):
+            for i in range(start, 248):
+                if i not in used_ids:
+                    return i
+            raise ValueError("No free reserved_special_token slots left.")
+
+        # Add X tokens:
+        for i in range(100):
+            free_id = next_free_id()
+            used_ids.add(free_id)
+            token_map[f'<|reserved_special_token_{free_id}|>'] = f'<|x{i}|>'
+
+        # Add Y tokens:
+        for i in range(100):
+            free_id = next_free_id()
+            used_ids.add(free_id)
+            token_map[f'<|reserved_special_token_{free_id}|>'] = f'<|y{i}|>'
+
+        CXRMate2Processor.register_for_auto_class()
+        self.processor.push_to_hub(self.hf_hub_alias)
+
+        rename_added_tokens(self.hf_hub_alias, token_map=token_map)
+
         CXRMate2Config.register_for_auto_class()
         CXRMate2ForConditionalGeneration.register_for_auto_class('AutoModelForCausalLM')
 
         self.load_safetensors_state_dict(self.model, self.upload_ckpt_dir)
         self.model.push_to_hub(self.hf_hub_alias)
-
-        CXRMate2Processor.register_for_auto_class()
-        self.processor.push_to_hub(self.hf_hub_alias)
 
         self.generation_config.push_to_hub(self.hf_hub_alias)
 

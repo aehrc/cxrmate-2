@@ -20,7 +20,6 @@ class CXRMate2Config(PretrainedConfig):
         num_q_adapter_positions: int = None,
         findings_token_type_id: int = None,
         impression_token_type_id: int = None,
-        image_token: str = None,
         image_token_index: int = None,
         permute_encoder_last_hidden_state: bool = False,
         time_delta_encoder_intermediate_size: int = 2048,
@@ -41,7 +40,6 @@ class CXRMate2Config(PretrainedConfig):
         self.num_q_adapter_positions = num_q_adapter_positions
         self.findings_token_type_id = findings_token_type_id
         self.impression_token_type_id = impression_token_type_id
-        self.image_token = image_token
         self.image_token_index = image_token_index
         self.permute_encoder_last_hidden_state = permute_encoder_last_hidden_state
         self.time_delta_encoder_intermediate_size = time_delta_encoder_intermediate_size
