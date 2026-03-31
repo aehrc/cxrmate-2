@@ -20,6 +20,8 @@ scratch3/
 experiments_bowen/
 experiments_scratch/
 
+evaluate_checkpoints.*
+
 # SLURM
 *.slurm
 *.out
