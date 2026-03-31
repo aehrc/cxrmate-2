@@ -15,8 +15,15 @@ from hydra import compose, initialize_config_dir
 from loggers import ReportLogger, ReportTokenIdentifiersLogger, SizeLogger
 from omegaconf import OmegaConf
 from PIL import Image
+from qwen_vl_utils import process_vision_info
 from stages_cxrmate2 import Stages
 from torchvision.transforms import v2
+from tqdm import tqdm
+from transformers import (
+    AutoProcessor,
+    AutoTokenizer,
+    Qwen2_5_VLForConditionalGeneration,
+)
 from transformers.feature_extraction_utils import BatchFeature
 from utils import CSVTracker
 
@@ -348,14 +355,19 @@ class MedGemmaGenerateStages(GenerateStages):
         
         def test_collate_fn(batch):
 
-            images = [Image.open(io.BytesIO(bytearray(i))).convert('RGB') for i in batch[0]['images']]
+            study_datetime = batch[0]['study_datetime']
+            current_cxr_mask = [i == study_datetime for i in batch[0]['image_datetime']]
 
-            text = "You are a radiologist. Write the FINDINGS section of a chest X-ray report in standard professional language, without headings or formatting. FINDINGS:"
-            if batch[0]['indication'] is not None:
+            current_images = [j for i, j in zip(current_cxr_mask, batch[0]['images']) if i]
+
+            images = [Image.open(io.BytesIO(bytearray(i))).convert('RGB') for i in current_images]
+
+            text = "Write the FINDINGS section of a chest X-ray report in standard professional language, without headings or formatting. FINDINGS:"
+            if 'indication' in batch[0] and batch[0]['indication'] is not None:
                 text = batch[0]['indication'] + ' ' + text
-            if self.test_datasets[0] != 'rexgradient' and batch[0]['history'] is not None:
+            if self.test_datasets[0] != 'rexgradient' and 'history' in batch[0] and batch[0]['history'] is not None:
                 text = batch[0]['history'] + ' ' + text
-            if batch[0]['technique'] is not None:
+            if 'technique' in batch[0] and batch[0]['technique'] is not None:
                 text = batch[0]['technique'] + ' ' + text
 
             messages = [
@@ -399,6 +411,446 @@ class MedGemmaGenerateStages(GenerateStages):
         impression = ''
 
         return torch.tensor([[]]), [findings], [impression], [0]
+
+
+class MedGemma15GenerateStages(GenerateStages):
+
+    def init_model(self):
+
+        model_id = "google/medgemma-1.5-4b-it"
+
+        self.model = transformers.AutoModelForImageTextToText.from_pretrained(
+            model_id,
+            torch_dtype=torch.bfloat16,
+        )
+        self.processor = transformers.AutoProcessor.from_pretrained(model_id)
+
+    def dataloader_collate_functions(self):
+        
+        def test_collate_fn(batch):
+
+            study_datetime = batch[0]['study_datetime']
+            current_cxr_mask = [i == study_datetime for i in batch[0]['image_datetime']]
+
+            current_images = [j for i, j in zip(current_cxr_mask, batch[0]['images']) if i]
+            prior_images = [j for i, j in zip(current_cxr_mask, batch[0]['images']) if not i]
+
+            current_images = [Image.open(io.BytesIO(bytearray(i))).convert('RGB') for i in current_images]
+            prior_images = [Image.open(io.BytesIO(bytearray(i))).convert('RGB') for i in prior_images]
+
+            prior_text = 'Prior study CXRs:'
+
+            text = "Write the FINDINGS and IMPRESSION section of a chest X-ray report in standard professional language, without headings or formatting. FINDINGS:"
+            if 'indication' in batch[0] and batch[0]['indication'] is not None:
+                text = f'Indication: {batch[0]["indication"]} ' + text
+            if self.test_datasets[0] != 'rexgradient' and 'history' in batch[0] and batch[0]['history'] is not None:
+                text = f'History: {batch[0]["history"]} ' + text
+            if 'technique' in batch[0] and batch[0]['technique'] is not None:
+                text = f'Technique: {batch[0]["technique"]} ' + text
+
+            prior_sections = []
+            if batch[0]['prior_findings'][0] is not None:
+                prior_sections.append(f"Prior study findings: {batch[0]['findings']}")
+            if batch[0]['prior_impression'][0] is not None:
+                prior_sections.append(f"Prior study impression: {batch[0]['impression']}")
+            prior_sections = ', '.join(prior_sections)
+            
+            messages = [
+                {
+                    "role": "system",
+                    "content": [{"type": "text", "text": "You are an expert radiologist specializing in chest X-ray interpretation."}]
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        *(
+                            [{"type": "text", "text": prior_text}] +
+                            [{"type": "image", "image": image} for image in prior_images]
+                            if prior_images else []
+                        ),
+                        *([{"type": "text", "text": prior_sections}] if prior_sections else []),
+                        *[{"type": "image", "image": image} for image in current_images],
+                        {"type": "text", "text": text},
+                    ]
+                }
+            ]
+
+            processed = self.processor.apply_chat_template(
+                messages, add_generation_prompt=True, tokenize=True,
+                return_dict=True, return_tensors='pt'
+            ).to(dtype=torch.bfloat16)
+
+            processed.data['findings'] = [batch[0]['findings']]
+            processed.data['impression'] = [batch[0]['impression']]
+            processed.data['study_id'] = [batch[0]['study_id']]
+
+            return processed
+        
+        return None, test_collate_fn
+
+    def generate_sections(self, batch):
+
+        input_len = batch['input_ids'].shape[-1]
+
+        with torch.inference_mode():
+            gen_model = self.model.module if hasattr(self.model, 'module') else self.model
+            generation = gen_model.generate(**batch, max_new_tokens=200, do_sample=False)
+            generation = generation[0][input_len:]
+
+        report = self.processor.decode(generation, skip_special_tokens=True)
+
+        if 'IMPRESSION: ' in report:
+            findings, impression = report.split('IMPRESSION: ', maxsplit=1)
+            findings = findings.strip()
+            impression = impression.strip()
+        else:
+            findings = report.strip()
+            impression = ''
+
+        return torch.tensor([[]]), [findings], [impression], [0]
+
+
+class DeepMedixR1GenerateStages(GenerateStages):
+
+    def init_model(self):
+
+        model_id = "Qika/DeepMedix-R1"
+
+        self.model =  Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            model_id,
+            torch_dtype=torch.bfloat16,
+        )
+        self.processor = AutoProcessor.from_pretrained("Qika/DeepMedix-R1", max_pixels=262144)
+
+    def dataloader_collate_functions(self):
+        
+        def test_collate_fn(batch):
+
+            study_datetime = batch[0]['study_datetime']
+            current_cxr_mask = [i == study_datetime for i in batch[0]['image_datetime']]
+
+            current_images = [j for i, j in zip(current_cxr_mask, batch[0]['images']) if i]
+            # prior_images = [j for i, j in zip(current_cxr_mask, batch[0]['images']) if not i]
+
+            current_images = [Image.open(io.BytesIO(bytearray(i))).convert('RGB') for i in current_images]
+            # prior_images = [Image.open(io.BytesIO(bytearray(i))).convert('RGB') for i in prior_images]
+
+            # prior_text = 'Prior study CXRs:'
+
+            # text = "Write the FINDINGS and IMPRESSION section of a chest X-ray report in standard professional language, without headings or formatting. FINDINGS:"
+            # if 'indication' in batch[0] and batch[0]['indication'] is not None:
+            #     text = f'Indication: {batch[0]["indication"]} ' + text
+            # if self.test_datasets[0] != 'rexgradient' and 'history' in batch[0] and batch[0]['history'] is not None:
+            #     text = f'History: {batch[0]["history"]} ' + text
+            # if 'technique' in batch[0] and batch[0]['technique'] is not None:
+            #     text = f'Technique: {batch[0]["technique"]} ' + text
+
+            # prior_sections = []
+            # if batch[0]['prior_findings'][0] is not None:
+            #     prior_sections.append(f"Prior study findings: {batch[0]['findings']}")
+            # if batch[0]['prior_impression'][0] is not None:
+            #     prior_sections.append(f"Prior study impression: {batch[0]['impression']}")
+            # prior_sections = ', '.join(prior_sections)
+            
+            # messages = [
+            #     {
+            #         "role": "system",
+            #         "content": [{"type": "text", "text": "You are an expert radiologist specializing in chest X-ray interpretation."}]
+            #     },
+            #     {
+            #         "role": "user",
+            #         "content": [
+            #             *(
+            #                 [{"type": "text", "text": prior_text}] +
+            #                 [{"type": "image", "image": image} for image in prior_images]
+            #                 if prior_images else []
+            #             ),
+            #             *([{"type": "text", "text": prior_sections}] if prior_sections else []),
+            #             *[{"type": "image", "image": image} for image in current_images],
+            #             {"type": "text", "text": text},
+            #         ]
+            #     }
+            # ]
+
+            # processed = self.processor.apply_chat_template(
+            #     messages, add_generation_prompt=True, tokenize=True,
+            #     return_dict=True, return_tensors='pt'
+            # ).to(dtype=torch.bfloat16)
+
+            # processed.data['findings'] = [batch[0]['findings']]
+            # processed.data['impression'] = [batch[0]['impression']]
+            # processed.data['study_id'] = [batch[0]['study_id']]
+
+
+            reason_prompt = r"You FIRST think about the reasoning process as an internal monologue and then provide the final answer. The reasoning process MUST BE enclosed within <think> </think> tags. During this reasoning process, prioritize analyzing the local regions of the image by leveraging the bounding box coordinates in the format [x_min, y_min, x_max, y_max]. The final answer MUST BE put in \boxed{}. An example is like: <think> reasoning process 1 with [x_min1, y_min1, x_max1, y_max1]; reasoning process 2 with [x_min2, y_min2, x_max2, y_max2] </think>. The answer is: \boxed{answer}."
+
+            content_list = []
+            for image_url in current_images:
+                content_list.append({
+                    "type": "image",
+                    "image": image_url,
+                })
+            content_list.append({"type": "text",
+                                "text": " Please act as an experienced radiologist and generate the \"FINDINGS\" section of an X-ray report based on the provided image(s). Carefully examine the image(s) and describe all observed anatomical structures and abnormalities in a systematic and objective manner." + '\n' + reason_prompt + '\n'})
+
+            messages = [
+                {
+                    "role": "user",
+                    "content": content_list
+                }
+            ]
+            processor = AutoProcessor.from_pretrained("Qika/DeepMedix-R1", max_pixels=262144)
+
+            # Preparation for inference
+            text = processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            # print(text)
+            image_inputs, video_inputs = process_vision_info(messages)
+            inputs = processor(
+                text=[text],
+                images=image_inputs,
+                videos=video_inputs,
+                padding=True,
+                return_tensors="pt",
+            )
+
+            inputs['findings'] = [batch[0]['findings']]
+            inputs['impression'] = [batch[0]['impression']]
+            inputs['study_id'] = [batch[0]['study_id']]
+
+            return inputs
+        
+        return None, test_collate_fn
+
+    def generate_sections(self, batch):
+
+        # input_len = batch['input_ids'].shape[-1]
+
+        with torch.inference_mode():
+            # gen_model = self.model.module if hasattr(self.model, 'module') else self.model
+            # generation = gen_model.generate(**batch, max_new_tokens=200, do_sample=False)
+            # generation = generation[0][input_len:]
+            gen_model = self.model.module if hasattr(self.model, 'module') else self.model
+
+            generated_ids = gen_model.generate(**batch, max_new_tokens=4096, do_sample=True, temperature=0.6)
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):] for in_ids, out_ids in zip(batch.input_ids, generated_ids)
+            ]
+
+        output_text = self.processor.batch_decode(
+            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )
+
+        match = re.search(r'\\boxed\{(.*?)\}', output_text[0], re.DOTALL)
+        answer = match.group(1).strip() if match else None
+
+        # print(output_text)
+        # print(output_text[0])
+        # return output_text[0]
+
+        # report = self.processor.decode(generation, skip_special_tokens=True)
+
+
+        findings = answer
+        impression = ''
+
+        return torch.tensor([[]]), [findings], [impression], [0]
+
+
+class CheXOneGenerateStages(GenerateStages):
+
+    def init_model(self):
+
+        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            "StanfordAIMI/CheXOne", torch_dtype="auto",
+        )
+
+        self.processor = AutoProcessor.from_pretrained("StanfordAIMI/CheXOne")
+        
+    def dataloader_collate_functions(self):
+        
+        def test_collate_fn(batch):
+
+            return batch
+        
+        return None, test_collate_fn
+
+    def generate_sections(self, batch):
+
+        study_datetime = batch[0]['study_datetime']
+        current_cxr_mask = [i == study_datetime for i in batch[0]['image_datetime']]
+
+        current_images = [j for i, j in zip(current_cxr_mask, batch[0]['images']) if i]
+
+        current_images = [Image.open(io.BytesIO(bytearray(i))).convert('RGB') for i in current_images]
+        
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    *[{"type": "image", "image": image} for image in current_images],
+                    {
+                        "type": "text",
+                        "text": "Write an example findings section for the CXR. Please reason step by step, and put your final answer within \\boxed{{}}.",
+                    },
+                ],
+            }
+        ]
+
+        text = self.processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        image_inputs, video_inputs = process_vision_info(messages)
+
+        inputs = self.processor(
+            text=[text],
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            return_tensors="pt",
+        )
+        inputs = inputs.to(self.accelerator.device)
+
+        # Inference: Generation of the output
+        gen_model = self.model.module if hasattr(self.model, 'module') else self.model
+        generated_ids = gen_model.generate(**inputs, max_new_tokens=1024)
+        generated_ids_trimmed = [
+            out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        output_text = self.processor.batch_decode(
+            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )
+
+        match = re.search(r'\\boxed\{(.*?)\}', output_text[0], re.DOTALL)
+        findings = match.group(1).strip() if match else output_text[0]
+
+        impression = ''
+
+        return torch.tensor([[]]), [findings], [impression], [0]
+
+    def test_epoch(self, epoch):
+        
+        self.model.eval()
+        
+        for test_dataloader, test_set in zip(self.test_dataloaders, self.test_datasets, strict=True):
+            
+            if not self.accelerator.state.distributed_type.name == 'NO':
+                assert isinstance(test_dataloader, accelerate.data_loader.DataLoaderShard), 'You must prepare the dataloader with accelerate.'
+
+            pbar = tqdm(range(len(test_dataloader)))
+            pbar.set_description(f'Test ({test_set})')
+            
+            for step, batch in enumerate(test_dataloader):
+                
+                # batch = batch.to(self.accelerator.device)
+                
+                findings_gt = [batch[0]['findings']]
+                impression_gt = [batch[0]['impression']]
+                study_id = [batch[0]['study_id']]
+
+                generated_ids, findings, impression, prompt_len = self.generate_sections(batch)
+
+                if test_set == 'rexgradient':
+                    self.test_report_logger_rexgradient.update(findings, impression, study_ids=study_id)
+                    self.test_report_ids_logger_rexgradient.update(generated_ids, study_ids=study_id)
+                    self.test_prompt_len_logger_rexgradient.update(prompt_len, study_ids=study_id)
+                elif test_set == 'chexpert_plus':
+                    self.test_report_logger_chexpert_plus.update(findings, impression, study_ids=study_id)
+                    self.test_report_ids_logger_chexpert_plus.update(generated_ids, study_ids=study_id)
+                    self.test_prompt_len_logger_chexpert_plus.update(prompt_len, study_ids=study_id)
+                elif test_set == 'mimic_cxr_dpo':
+                    self.test_report_logger_mimic_cxr_dpo.update(findings, impression, study_ids=study_id)
+                    self.test_report_ids_logger_mimic_cxr_dpo.update(generated_ids, study_ids=study_id)
+                    self.test_prompt_len_logger_mimic_cxr_dpo.update(prompt_len, study_ids=study_id)
+                else:
+                    self.test_report_ids_logger.update(generated_ids, study_ids=study_id)
+                    self.test_report_logger.update(findings, impression, study_ids=study_id)  
+                    self.test_prompt_len_logger.update(prompt_len, study_ids=study_id)
+                
+                # Handle missing radiologist sections:
+                findings = [i for i, j in zip(findings, findings_gt, strict=True) if j is not None]
+                findings_gt = [i for i in findings_gt if i is not None]   
+            
+                impression = [i for i, j in zip(impression, impression_gt, strict=True) if j is not None]
+                impression_gt = [i for i in impression_gt if i is not None]
+                        
+                for metric_name, metric in self.test_metrics.items():
+
+                    if ('chexpert_plus' in metric_name) != (test_set == 'chexpert_plus'):
+                        continue
+
+                    if ('rexgradient' in metric_name) != (test_set == 'rexgradient'):
+                        continue
+
+                    if ('mimic_cxr_dpo' in metric_name) != (test_set == 'mimic_cxr_dpo'):
+                        continue
+
+                    if 'findings' in metric_name and findings_gt:
+                        metric.update(findings, findings_gt, study_ids=study_id)
+                    elif 'impression' in metric_name and impression_gt:
+                        metric.update(impression, impression_gt, study_ids=study_id)
+                        
+                if self.accelerator.is_main_process:
+                    pbar.update(1)
+                        
+        pbar.close()
+
+        scores = {}
+
+        if 'mimic_cxr' in self.test_datasets:
+            self.test_report_logger.compute(epoch)
+            self.test_report_logger.reset()
+            self.test_report_ids_logger.compute(epoch)
+            self.test_report_ids_logger.reset()
+            output = self.test_prompt_len_logger.compute(epoch)
+            self.test_prompt_len_logger.reset()
+
+            scores = {**scores, **output}
+        
+        if 'mimic_cxr_dpo' in self.test_datasets:
+            self.test_report_logger_mimic_cxr_dpo.compute(epoch)
+            self.test_report_logger_mimic_cxr_dpo.reset()
+            self.test_report_ids_logger_mimic_cxr_dpo.compute(epoch)
+            self.test_report_ids_logger_mimic_cxr_dpo.reset()
+            output = self.test_prompt_len_logger_mimic_cxr_dpo.compute(epoch)
+            self.test_prompt_len_logger_mimic_cxr_dpo.reset()
+                        
+            scores = {**scores, **output}
+
+
+        if 'chexpert_plus' in self.test_datasets:
+            self.test_report_logger_chexpert_plus.compute(epoch)
+            self.test_report_logger_chexpert_plus.reset()
+            self.test_report_ids_logger_chexpert_plus.compute(epoch)
+            self.test_report_ids_logger_chexpert_plus.reset()
+            output = self.test_prompt_len_logger_chexpert_plus.compute(epoch)
+            self.test_prompt_len_logger_chexpert_plus.reset()
+                        
+            scores = {**scores, **output}
+
+        if 'rexgradient' in self.test_datasets:
+            self.test_report_logger_rexgradient.compute(epoch)
+            self.test_report_logger_rexgradient.reset()
+            self.test_report_ids_logger_rexgradient.compute(epoch)
+            self.test_report_ids_logger_rexgradient.reset()
+            output = self.test_prompt_len_logger_rexgradient.compute(epoch)
+            self.test_prompt_len_logger_rexgradient.reset()
+                        
+            scores = {**scores, **output}
+            
+        for i in self.test_metrics.keys():
+            output = self.test_metrics[i].compute(epoch)
+            if isinstance(output, dict):
+                for k, v in output.items():
+                    scores.update({k: v})
+            else:
+                scores.update({i: output})    
+            self.test_metrics[i].reset()
+            
+        scores = {**scores, **output}
+        
+        return scores
 
 
 class CXRMateRRG24GenerateStages(GenerateStages):
@@ -569,6 +1021,58 @@ class EMNLIEvalGeneratedStages(EvalGeneratedStages):
         self.reports['study_id'] = self.reports['study_id'].astype(int)
 
 
+class PriorRGEvalGeneratedStages(EvalGeneratedStages):
+
+    def init_model(self):
+
+        self.model = torch.nn.Identity()
+        self.reports = pd.read_csv(self.generated_reports_path)
+        self.reports[['subject_id', 'study_id', 'dicom_id']] = self.reports['dicom_id'].str.split('_', n=2, expand=True)
+        self.reports['study_id'] = self.reports['study_id'].astype(int)
+        self.reports = self.reports.drop_duplicates(subset=['study_id'], keep='first').reset_index(drop=True)
+        self.reports = self.reports.rename(columns={'generated_report': 'findings'})
+
+        if self.limit_test_samples is not None:
+            all_study_ids = self.test_dataloaders[0].dataset.dataset.datasets[0].dataset.dataset['study_id']
+        else:
+            all_study_ids = self.test_dataloaders[0].dataset.datasets[0].dataset.dataset['study_id']
+
+        missing_study_ids = set(all_study_ids) - set(self.reports['study_id'])
+        if missing_study_ids:
+            missing_rows = pd.DataFrame({'study_id': list(missing_study_ids), 'findings': ''})
+            self.reports = pd.concat([self.reports, missing_rows], ignore_index=True)
+
+        self.reports['impression'] = ''
+
+
+class MLRGEvalGeneratedStages(EvalGeneratedStages):
+
+    def init_model(self):
+
+        self.model = torch.nn.Identity()
+        self.reports = pd.read_csv(self.generated_reports_path)
+
+        df = pd.read_csv('/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/work/data/physionet.org/files/mimic-cxr-jpg/2.0.0/mimic-cxr-2.0.0-metadata.csv.gz')
+
+        self.reports = pd.merge(self.reports, df[['study_id', 'dicom_id']], on='dicom_id', how='left')
+
+        self.reports['study_id'] = self.reports['study_id'].astype(int)
+        self.reports = self.reports.drop_duplicates(subset=['study_id'], keep='first').reset_index(drop=True)
+        self.reports = self.reports.rename(columns={'report': 'findings'})
+
+        if self.limit_test_samples is not None:
+            all_study_ids = self.test_dataloaders[0].dataset.dataset.datasets[0].dataset.dataset['study_id']
+        else:
+            all_study_ids = self.test_dataloaders[0].dataset.datasets[0].dataset.dataset['study_id']
+
+        missing_study_ids = set(all_study_ids) - set(self.reports['study_id'])
+        if missing_study_ids:
+            missing_rows = pd.DataFrame({'study_id': list(missing_study_ids), 'findings': ''})
+            self.reports = pd.concat([self.reports, missing_rows], ignore_index=True)
+
+        self.reports['impression'] = ''
+
+
 class MedVersaEvalGeneratedStages(EvalGeneratedStages):
 
     def init_model(self):
@@ -732,6 +1236,26 @@ if __name__ == '__main__':
     elif model_key == 'MoERad':
         pass
 
+    elif model_key == 'PriorRG':
+        if args.test_set == 'mimic_cxr':
+            PriorRGEvalGeneratedStages(
+                exp_trial_dir='/scratch3/nic261/experiments/cxrmate2/final/priorrg/trial_0',
+                generated_reports_path='/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/work/data/generated_radiology_reports/priorrg/mimic-cxr-generated-reports-24-03-2025_18-07-41.csv',
+                debug=args.debug,
+                limit_test_samples=args.limit_test_samples,
+                test_datasets=test_datasets,
+            )()
+
+    elif model_key == 'MLRG':
+        if args.test_set == 'mimic_cxr':
+            MLRGEvalGeneratedStages(
+                exp_trial_dir='/scratch3/nic261/experiments/cxrmate2/final/mlrg/trial_0',
+                generated_reports_path='/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/work/data/generated_radiology_reports/mlrg/test_reports_epoch-1_20-10-2024_16-28-28.csv',
+                debug=args.debug,
+                limit_test_samples=args.limit_test_samples,
+                test_datasets=test_datasets,
+            )()
+
     elif model_key == 'MedVersa':
         if args.test_set == 'mimic_cxr':
             MedVersaEvalGeneratedStages(
@@ -798,6 +1322,54 @@ if __name__ == '__main__':
         elif args.evaluate:
             EvalGeneratedStages(
                 exp_trial_dir='/scratch3/nic261/experiments/cxrmate2/final/medgemma/trial_0',
+                debug=args.debug,
+                limit_test_samples=args.limit_test_samples,
+                test_datasets=test_datasets,
+            )()
+
+    elif model_key == 'MedGemma15':
+        if args.generate:
+            MedGemma15GenerateStages(
+                exp_trial_dir='/scratch3/nic261/experiments/cxrmate2/final/medgemma_15/trial_0',
+                debug=args.debug,
+                limit_test_samples=args.limit_test_samples,
+                test_datasets=test_datasets,
+            )()
+        elif args.evaluate:
+            EvalGeneratedStages(
+                exp_trial_dir='/scratch3/nic261/experiments/cxrmate2/final/medgemma_15/trial_0',
+                debug=args.debug,
+                limit_test_samples=args.limit_test_samples,
+                test_datasets=test_datasets,
+            )()
+
+    elif model_key == 'DeepMedixR1':
+        if args.generate:
+            DeepMedixR1GenerateStages(
+                exp_trial_dir='/scratch3/nic261/experiments/cxrmate2/final/deepmedix_r1/trial_0',
+                debug=args.debug,
+                limit_test_samples=args.limit_test_samples,
+                test_datasets=test_datasets,
+            )()
+        elif args.evaluate:
+            EvalGeneratedStages(
+                exp_trial_dir='/scratch3/nic261/experiments/cxrmate2/final/deepmedix_r1/trial_0',
+                debug=args.debug,
+                limit_test_samples=args.limit_test_samples,
+                test_datasets=test_datasets,
+            )()
+
+    elif model_key == 'CheXOne':
+        if args.generate:
+            CheXOneGenerateStages(
+                exp_trial_dir='/scratch3/nic261/experiments/cxrmate2/final/chexone/trial_0',
+                debug=args.debug,
+                limit_test_samples=args.limit_test_samples,
+                test_datasets=test_datasets,
+            )()
+        elif args.evaluate:
+            EvalGeneratedStages(
+                exp_trial_dir='/scratch3/nic261/experiments/cxrmate2/final/chexone/trial_0',
                 debug=args.debug,
                 limit_test_samples=args.limit_test_samples,
                 test_datasets=test_datasets,

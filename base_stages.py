@@ -25,7 +25,8 @@ import transformers
 import yaml
 from command_line_arguments import read_command_line_arguments
 from munch import DefaultMunch
-from peft import PeftModel
+
+# from peft import PeftModel
 from safetensors.torch import load_file
 from slurm import SlurmSubmit
 from torch.nn.parallel import DistributedDataParallel
@@ -146,7 +147,7 @@ class BaseStages:
         
         self.model = None
         
-        self.peft_config = None
+        # self.peft_config = None
                     
         tracker = CSVTracker(exp_trial_dir)
         self.accelerator = accelerate.Accelerator(log_with=tracker, project_dir=exp_trial_dir)
@@ -229,8 +230,8 @@ class BaseStages:
             self.init_dataloaders()
             self.init_processor()
             self.init_model()
-            if isinstance(self.model, PeftModel) or hasattr(self.model, 'peft_config'):
-                assert hasattr(self, 'peft_config'), '[__init_modules__]: a "peft_config" attribute is needed to load a PeftModel model checkpoint.'
+            # if isinstance(self.model, PeftModel) or hasattr(self.model, 'peft_config'):
+            #     assert hasattr(self, 'peft_config'), '[__init_modules__]: a "peft_config" attribute is needed to load a PeftModel model checkpoint.'
             if (self.last_epoch is None and self.train) or self.test_pretrained:
                 self.warm_start()
             if self.train:
@@ -347,19 +348,24 @@ class BaseStages:
             model_summary_path = os.path.join(self.exp_trial_dir, 'model_layers.txt')
             try:
                 with open(model_summary_path, 'w') as f:
-                    f.write(f"{'Layer':100} {'#Params':>14} {'Dtype':>16} {'Size_MB':>14}\n")
+                    f.write(f"{'Layer':100} {'#Params':>14} {'Dtype':>16} {'Size_MB':>14} {'Requires_Grad':>14}\n")
                     f.write('\n')
                     total_params = 0
                     total_size = 0.0
+                    trainable_params = 0
                     for name, param in model.named_parameters():
                         num_params = param.numel()
                         dtype = str(param.dtype)
                         size_mb = param.element_size() * num_params / (1024 ** 2)
                         total_params += num_params
                         total_size += size_mb
-                        f.write(f"{name:100} {num_params:14} {dtype:>16} {size_mb:14.2f}\n")
+                        if param.requires_grad:
+                            trainable_params += num_params
+                        f.write(f"{name:100} {num_params:14} {dtype:>16} {size_mb:14.2f} {str(param.requires_grad):>14}\n")
                     f.write('\n')
                     f.write(f"{'Total':100} {total_params:14} {'':>16} {total_size:14.2f}\n")
+                    f.write(f"{'Trainable':100} {trainable_params:14}\n")
+                    f.write(f"{'Non-trainable':100} {total_params - trainable_params:14}\n")
                 self.print(f'[log_details]: Saved model layer summary to {model_summary_path}.')
             except Exception as e:
                 self.print(f'[log_details]: Failed to save model layer summary: {e}.')
@@ -852,7 +858,7 @@ class BaseStages:
         evaluate_dir = os.path.join(load_dir, 'evaluate')
 
         model = self.model.module if hasattr(self.model, 'module')  else self.model
-        is_peft_model = isinstance(model, PeftModel) or hasattr(self.model, 'peft_config')
+        # is_peft_model = isinstance(model, PeftModel) or hasattr(self.model, 'peft_config')
 
         if evaluate:
             self.print(f'[load_state]: Loading checkpoint for evaluation: {evaluate_dir}...')
@@ -860,31 +866,31 @@ class BaseStages:
             #     del self.model
             #     self.init_model()
             if hasattr(self.model, 'module'):
-                if is_peft_model:
-                    base_model = self.model.module.unload()
-                    self.model = PeftModel.from_pretrained(base_model, evaluate_dir, config=self.peft_config)
-                else:
+                # if is_peft_model:
+                #     base_model = self.model.module.unload()
+                #     self.model = PeftModel.from_pretrained(base_model, evaluate_dir, config=self.peft_config)
+                # else:
+                try:
+                    self.model = self.model.module.from_pretrained(evaluate_dir, config=self.model.module.config)
+                except Exception as e_1:
                     try:
-                        self.model = self.model.module.from_pretrained(evaluate_dir, config=self.model.module.config)
-                    except Exception as e_1:
-                        try:
-                            self.print(f'[load_state]: Failed to load from evaluate_dir ({e_1}), attempting to load from resumable_dir...')
-                            self.accelerator.load_state(resumable_dir)
-                        except Exception as e_2:
-                            raise RuntimeError(f'[load_state]: Both evaluate ({e_1}) and resumable ({e_2}) checkpoint directories failed to load.')
+                        self.print(f'[load_state]: Failed to load from evaluate_dir ({e_1}), attempting to load from resumable_dir...')
+                        self.accelerator.load_state(resumable_dir)
+                    except Exception as e_2:
+                        raise RuntimeError(f'[load_state]: Both evaluate ({e_1}) and resumable ({e_2}) checkpoint directories failed to load.')
             else:
-                if is_peft_model:
-                    base_model = self.model.unload()
-                    self.model = PeftModel.from_pretrained(base_model, evaluate_dir, config=self.peft_config)
-                else:
+                # if is_peft_model:
+                #     base_model = self.model.unload()
+                #     self.model = PeftModel.from_pretrained(base_model, evaluate_dir, config=self.peft_config)
+                # else:
+                try:
+                    self.model = self.model.from_pretrained(evaluate_dir, config=self.model.config)
+                except Exception as e_1:
                     try:
-                        self.model = self.model.from_pretrained(evaluate_dir, config=self.model.config)
-                    except Exception as e_1:
-                        try:
-                            self.print(f'[load_state]: Failed to load from evaluate_dir ({e_1}), attempting to load from resumable_dir...')
-                            self.accelerator.load_state(resumable_dir)
-                        except Exception as e_2:
-                            raise RuntimeError(f'[load_state]: Both evaluate ({e_1}) and resumable ({e_2}) checkpoint directories failed to load.')
+                        self.print(f'[load_state]: Failed to load from evaluate_dir ({e_1}), attempting to load from resumable_dir...')
+                        self.accelerator.load_state(resumable_dir)
+                    except Exception as e_2:
+                        raise RuntimeError(f'[load_state]: Both evaluate ({e_1}) and resumable ({e_2}) checkpoint directories failed to load.')
             
             # This check does not account for non-DDP distributed methods:
             if not isinstance(self.model, DistributedDataParallel):

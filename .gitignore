@@ -4,6 +4,8 @@ plots/
 plots
 results/
 
+*_supporting*
+
 .idea/
 .vscode/
 .neptune/
@@ -16,7 +18,8 @@ scratch3/
 experiments_bowen/
 experiments_scratch/
 
-# SLURM outputs
+# SLURM
+*.slurm
 *.out
 *.err
 

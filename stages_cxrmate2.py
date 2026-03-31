@@ -3,7 +3,7 @@ import math
 import os
 import random
 import re
-from typing import Optional
+from typing import Optional, Union
 
 import accelerate
 import datasets
@@ -14,6 +14,7 @@ import transformers
 from base_stages import BaseStages
 from configuration_cxrmate2 import CXRMate2Config
 from dataset import CXRMate2Dataset
+from huggingface_hub import upload_file
 from loggers import ReportLogger, ReportTokenIdentifiersLogger, SizeLogger
 from modelling_cxrmate2 import CXRMate2ForConditionalGeneration
 from processing_cxrmate2 import CXRMate2Processor
@@ -41,8 +42,9 @@ class Stages(BaseStages):
         num_cycles: int,
         set_special_tokens: dict,
         train_datasets: list,
-        test_datasets: list,
+        test_datasets: Union[list, str],
         findings_and_impression_strategy: str,
+        preferences: Optional[str] = None,
         warm_start_ckpt_dir: Optional[str] = None,
         enable_gradient_checkpointing: bool = False,
         other_exp_dir: Optional[str] = None,
@@ -65,12 +67,15 @@ class Stages(BaseStages):
         self.num_cycles = num_cycles
         self.set_special_tokens = set_special_tokens
         self.train_datasets = train_datasets
-        self.test_datasets = test_datasets
+        self.test_datasets = [test_datasets] if isinstance(test_datasets, str) else test_datasets
         self.findings_and_impression_strategy = findings_and_impression_strategy
+        self.preferences = preferences
         self.warm_start_ckpt_dir = warm_start_ckpt_dir
         self.enable_gradient_checkpointing = enable_gradient_checkpointing
         self.other_exp_dir = other_exp_dir
         self.rename_state_dict_keys = rename_state_dict_keys
+
+        assert all(i in ['mimic_cxr', 'mimic_cxr_dpo', 'chexpert_plus', 'rexgradient'] for i in self.test_datasets), f'test_datasets must be a list containing any of "mimic_cxr", "mimic_cxr_dpo", "chexpert_plus", "rexgradient", not {self.test_datasets}.'
 
     def init_processor(self):
 
@@ -223,9 +228,6 @@ class Stages(BaseStages):
             # MIMIC-CXR:
             if 'mimic_cxr' in self.train_datasets:
                 train_set = dataset['train']
-                # train_set = train_set.rename_column('ViewPosition', 'views')
-                # train_set = train_set.rename_column('study_datetime', 'study_datetimes')
-                # train_set = train_set.rename_column('latest_study_datetime', 'study_datetime')
 
                 df = pd.DataFrame({'study_id': train_set['study_id'], 'findings': train_set['findings'], 'impression': train_set['impression']})
 
@@ -253,18 +255,6 @@ class Stages(BaseStages):
             # CheXpert Plus (history section exists as 'history' alread in the dataset):
             if 'chexpert_plus' in self.train_datasets:
                 train_set_chexpert_plus = dataset_chexpert_plus['train']     
-                # train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_findings', 'findings')
-                # train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_impression', 'impression')
-                # train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_comparison', 'comparison')
-                # train_set_chexpert_plus = train_set_chexpert_plus.rename_column('section_technique', 'technique')
-                # views = [
-                #     [c if c is not None else d for c, d in zip(a, b, strict=True)]
-                #     for a, b in zip(train_set_chexpert_plus['ap_pa'], train_set_chexpert_plus['frontal_lateral'], strict=True)
-                # ]
-                # train_set_chexpert_plus = train_set_chexpert_plus.add_column('views', views)
-                # train_set_chexpert_plus = train_set_chexpert_plus.add_column('study_datetime', [None] * len(train_set_chexpert_plus))
-                # train_set_chexpert_plus = train_set_chexpert_plus.add_column('indication', [None] * len(train_set_chexpert_plus))
-                # train_set_chexpert_plus = train_set_chexpert_plus.add_column('prior_study_datetimes', train_set_chexpert_plus['prior_study_ids'])
                 df = pd.DataFrame({'findings': train_set_chexpert_plus['findings'], 'impression': train_set_chexpert_plus['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -288,13 +278,6 @@ class Stages(BaseStages):
             # ReXgradient-160K:
             if 'rexgradient' in self.train_datasets:
                 train_set_rexgradient = dataset_rexgradient['train']
-                # train_set_rexgradient = train_set_rexgradient.rename_column('Findings', 'findings')
-                # train_set_rexgradient = train_set_rexgradient.rename_column('Impression', 'impression')
-                # train_set_rexgradient = train_set_rexgradient.rename_column('Indication', 'indication')
-                # train_set_rexgradient = train_set_rexgradient.rename_column('Comparison', 'comparison')
-                # train_set_rexgradient = train_set_rexgradient.rename_column('StudyDescription', 'technique')
-                # train_set_rexgradient = train_set_rexgradient.rename_column('StudyInstanceUid', 'study_id')
-                # train_set_rexgradient = train_set_rexgradient.rename_column('StudyDate', 'study_datetime')
                 df = pd.DataFrame({'findings': train_set_rexgradient['findings'], 'impression': train_set_rexgradient['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -343,9 +326,6 @@ class Stages(BaseStages):
         if self.validate:
 
             val_set = dataset['validate']
-            # val_set = val_set.rename_column('ViewPosition', 'views')
-            # val_set = val_set.rename_column('study_datetime', 'study_datetimes')
-            # val_set = val_set.rename_column('latest_study_datetime', 'study_datetime')
             df = pd.DataFrame({'study_id': val_set['study_id'], 'findings': val_set['findings'], 'impression': val_set['impression']})
             if self.findings_and_impression_strategy == 'or':
                 indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -385,9 +365,6 @@ class Stages(BaseStages):
             # MIMIC-CXR:
             if 'mimic_cxr' in self.test_datasets:
                 test_set = dataset['test']
-                # test_set = test_set.rename_column('ViewPosition', 'views')
-                # test_set = test_set.rename_column('study_datetime', 'study_datetimes')
-                # test_set = test_set.rename_column('latest_study_datetime', 'study_datetime')
                 df = pd.DataFrame({'study_id': test_set['study_id'], 'findings': test_set['findings'], 'impression': test_set['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -421,23 +398,51 @@ class Stages(BaseStages):
                 )
                 self.test_dataloaders.append(test_dataloader)
 
+            # MIMIC-CXR DPO:
+            if 'mimic_cxr_dpo' in self.test_datasets:
+
+                # Load radiologist preferences:
+                preferences = pd.read_json(self.preferences)
+
+                test_set_mimic_cxr_dpo = dataset['test']
+                df = pd.DataFrame({'study_id': test_set_mimic_cxr_dpo['study_id'], 'findings': test_set_mimic_cxr_dpo['findings'], 'impression': test_set_mimic_cxr_dpo['impression']})
+                df = df[~df['study_id'].isin(preferences['study_id'])]
+
+                if self.findings_and_impression_strategy == 'or':
+                    indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
+                elif self.findings_and_impression_strategy == 'and':
+                    indices = df[df[['findings', 'impression']].isnull().any(axis=1)].index.tolist()  # Consider studies with findings AND impression section.
+
+                test_set_mimic_cxr_dpo = CXRMate2Dataset(test_set_mimic_cxr_dpo, self.history)  
+                indices = list(set(range(len(test_set_mimic_cxr_dpo))) - set(indices))  
+                test_set_mimic_cxr_dpo = ConcatDataset([Subset(test_set_mimic_cxr_dpo, indices)])
+                
+                if self.limit_test_samples:  # For debugging.
+                    test_set_mimic_cxr_dpo = Subset(test_set_mimic_cxr_dpo, random.sample(range(len(test_set_mimic_cxr_dpo)), self.limit_test_samples))
+                test_dataloader_mimic_cxr_dpo = DataLoader(
+                        test_set_mimic_cxr_dpo,
+                        batch_size=self.test_mbatch_size,
+                        num_workers=self.dataloader_num_workers, 
+                        shuffle=False,
+                        prefetch_factor=self.prefetch_factor,
+                        collate_fn=test_collate_fn,
+                        pin_memory=True,
+                    )            
+                self.print(f'No. of MIMIC-CXR DPO test examples: {test_set_mimic_cxr_dpo.__len__()}.')
+                self.accelerator.log(
+                    {
+                        'stage': 'MIMIC-CXR DPO test', 
+                        'epoch': 0, 
+                        'step': 0,
+                        'len': test_set_mimic_cxr_dpo.__len__(),
+                    },
+                    step=0,
+                )
+                self.test_dataloaders.append(test_dataloader_mimic_cxr_dpo)
+
             # CheXpert Plus:
             if 'chexpert_plus' in self.test_datasets:
                 test_set_chexpert_plus = dataset_chexpert_plus['valid']     
-                # test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_findings', 'findings')
-                # test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_impression', 'impression')
-                # test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_comparison', 'comparison')
-                # test_set_chexpert_plus = test_set_chexpert_plus.rename_column('section_technique', 'technique')
-
-                # views = [
-                #     [c if c is not None else d for c, d in zip(a, b, strict=True)]
-                #     for a, b in zip(test_set_chexpert_plus['ap_pa'], test_set_chexpert_plus['frontal_lateral'], strict=True)
-                # ]
-                # test_set_chexpert_plus = test_set_chexpert_plus.add_column('views', views)
-
-                # test_set_chexpert_plus = test_set_chexpert_plus.add_column('study_datetime', [None] * len(test_set_chexpert_plus))
-                # test_set_chexpert_plus = test_set_chexpert_plus.add_column('indication', [None] * len(test_set_chexpert_plus))
-                # test_set_chexpert_plus = test_set_chexpert_plus.add_column('prior_study_datetimes', test_set_chexpert_plus['prior_study_ids'])
                 df = pd.DataFrame({'findings': test_set_chexpert_plus['findings'], 'impression': test_set_chexpert_plus['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -473,13 +478,7 @@ class Stages(BaseStages):
             # ReXgradient-160K:
             if 'rexgradient' in self.test_datasets:
                 test_set_rexgradient = dataset_rexgradient['test']
-                # test_set_rexgradient = test_set_rexgradient.rename_column('Findings', 'findings')
-                # test_set_rexgradient = test_set_rexgradient.rename_column('Impression', 'impression')
-                # test_set_rexgradient = test_set_rexgradient.rename_column('Indication', 'indication')
-                # test_set_rexgradient = test_set_rexgradient.rename_column('Comparison', 'comparison')
-                # test_set_rexgradient = test_set_rexgradient.rename_column('StudyDescription', 'technique')
-                # test_set_rexgradient = test_set_rexgradient.rename_column('StudyInstanceUid', 'study_id')
-                # test_set_rexgradient = test_set_rexgradient.rename_column('StudyDate', 'study_datetime')
+
                 df = pd.DataFrame({'findings': test_set_rexgradient['findings'], 'impression': test_set_rexgradient['impression']})
                 if self.findings_and_impression_strategy == 'or':
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
@@ -579,12 +578,34 @@ class Stages(BaseStages):
 
         self.test_metrics = {}
 
+        # MIMIC-CXR:
         if 'mimic_cxr' in self.test_datasets:
             self.test_metrics = {**self.test_metrics, **self.metric_suite('findings', 'test')}
             self.test_metrics = {**self.test_metrics, **self.metric_suite('impression', 'test')}
             self.test_report_logger = ReportLogger(exp_dir=self.exp_trial_dir, split='test_reports')
             self.test_report_ids_logger = ReportTokenIdentifiersLogger(exp_dir=self.exp_trial_dir, split='test_report_ids')
             self.test_prompt_len_logger = SizeLogger(exp_dir=self.exp_trial_dir, split='test_prompt_len')   
+
+        # MIMIC-CXR DPO:
+        if 'mimic_cxr_dpo' in self.test_datasets:
+            self.test_metrics = {**self.test_metrics, **self.metric_suite('findings', 'test', 'mimic_cxr_dpo')}
+            self.test_metrics = {**self.test_metrics, **self.metric_suite('impression', 'test', 'mimic_cxr_dpo')}
+
+            metric_name = inspect.signature(ReportLogger).parameters.get('metric_name').default
+            metric_name = f'{metric_name}_mimic_cxr_dpo'
+            self.test_report_logger_mimic_cxr_dpo = ReportLogger(
+                exp_dir=self.exp_trial_dir, split='test_reports_mimic_cxr_dpo', metric_name=metric_name,
+            )
+            metric_name = inspect.signature(ReportTokenIdentifiersLogger).parameters.get('metric_name').default
+            metric_name = f'{metric_name}_mimic_cxr_dpo'
+            self.test_report_ids_logger_mimic_cxr_dpo = ReportTokenIdentifiersLogger(
+                exp_dir=self.exp_trial_dir, split='test_report_ids_mimic_cxr_dpo', metric_name=metric_name,
+            )
+            metric_name = inspect.signature(SizeLogger).parameters.get('metric_name').default
+            metric_name = f'{metric_name}_mimic_cxr_dpo'
+            self.test_prompt_len_logger_mimic_cxr_dpo = SizeLogger(
+                exp_dir=self.exp_trial_dir, split='test_prompt_len_mimic_cxr_dpo', metric_name=metric_name,
+            ) 
 
         # CheXpert Plus:
         if 'chexpert_plus' in self.test_datasets:
@@ -943,6 +964,10 @@ class Stages(BaseStages):
                     self.test_report_logger_chexpert_plus.update(findings, impression, study_ids=study_id)
                     self.test_report_ids_logger_chexpert_plus.update(generated_ids, study_ids=study_id)
                     self.test_prompt_len_logger_chexpert_plus.update(prompt_len, study_ids=study_id)
+                elif test_set == 'mimic_cxr_dpo':
+                    self.test_report_logger_mimic_cxr_dpo.update(findings, impression, study_ids=study_id)
+                    self.test_report_ids_logger_mimic_cxr_dpo.update(generated_ids, study_ids=study_id)
+                    self.test_prompt_len_logger_mimic_cxr_dpo.update(prompt_len, study_ids=study_id)
                 else:
                     self.test_report_ids_logger.update(generated_ids, study_ids=study_id)
                     self.test_report_logger.update(findings, impression, study_ids=study_id)  
@@ -961,6 +986,9 @@ class Stages(BaseStages):
                         continue
 
                     if ('rexgradient' in metric_name) != (test_set == 'rexgradient'):
+                        continue
+
+                    if ('mimic_cxr_dpo' in metric_name) != (test_set == 'mimic_cxr_dpo'):
                         continue
 
                     if 'findings' in metric_name and findings_gt:
@@ -985,6 +1013,17 @@ class Stages(BaseStages):
 
             scores = {**scores, **output}
         
+        if 'mimic_cxr_dpo' in self.test_datasets:
+            self.test_report_logger_mimic_cxr_dpo.compute(epoch)
+            self.test_report_logger_mimic_cxr_dpo.reset()
+            self.test_report_ids_logger_mimic_cxr_dpo.compute(epoch)
+            self.test_report_ids_logger_mimic_cxr_dpo.reset()
+            output = self.test_prompt_len_logger_mimic_cxr_dpo.compute(epoch)
+            self.test_prompt_len_logger_mimic_cxr_dpo.reset()
+                        
+            scores = {**scores, **output}
+
+
         if 'chexpert_plus' in self.test_datasets:
             self.test_report_logger_chexpert_plus.compute(epoch)
             self.test_report_logger_chexpert_plus.reset()
@@ -1086,4 +1125,3 @@ class Stages(BaseStages):
         self.model.push_to_hub(self.hf_hub_alias)
 
         self.generation_config.push_to_hub(self.hf_hub_alias)
-

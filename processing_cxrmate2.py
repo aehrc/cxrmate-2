@@ -16,7 +16,6 @@ from torch.nn.utils.rnn import pad_sequence
 from transformers.feature_extraction_utils import BatchFeature
 from transformers.image_utils import ImageInput
 from transformers.tokenization_utils_base import PreTokenizedInput, TextInput
-from utils import compute_time_delta
 
 try:
     from .dataset import CXRMate2Dataset
@@ -49,6 +48,17 @@ VIEW_ORDER = [
     'POSTEROANTERIOR',  # PadChest.
     'PA',
 ]
+
+
+def compute_time_delta(event_time, reference_time, to_tensor=True):
+    time_delta = reference_time - event_time
+    time_delta = time_delta.total_seconds()
+    assert isinstance(time_delta, float), f'time_delta should be float, not {type(time_delta)}.'
+    if time_delta < 0:
+        raise ValueError(f'time_delta should be greater than or equal to zero, not {time_delta}.')
+    if to_tensor: 
+        time_delta = torch.tensor(time_delta)
+    return time_delta
 
 
 class CXRMate2Processor(transformers.ProcessorMixin):
@@ -314,8 +324,11 @@ class CXRMate2Processor(transformers.ProcessorMixin):
                             image_np = ds.pixel_array.astype(float)
                     
                         else:
-                            response = requests.get(images[i][j], stream=True)
-                            image = Image.open(BytesIO(response.content))
+                            if images[i][j].startswith('http://') or images[i][j].startswith('https://'):
+                                response = requests.get(images[i][j], stream=True)
+                                image = Image.open(BytesIO(response.content))
+                            else:
+                                image = Image.open(images[i][j])
                     
                     elif isinstance(images[i][j], Image.Image):
                         image = images[i][j]
@@ -329,7 +342,7 @@ class CXRMate2Processor(transformers.ProcessorMixin):
                         min_val = image_np.min()
                         denom = image_np.max() - min_val
                         if denom == 0:
-                            raise ValueError(f'Cannot normalize image with zero dynamic range (min and max both {min_val}).')
+                            raise ValueError(f'Cannot normalise image with zero dynamic range (min and max both {min_val}).')
                         image_np = (image_np - min_val) / denom
                         image_uint8 = (image_np * 255).astype(np.uint8)
                         image_eq = cv2.equalizeHist(image_uint8)

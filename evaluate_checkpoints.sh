@@ -2,31 +2,31 @@
 
 cd /datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/cxrmate2
 
-SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set mimic_cxr --generate | awk '{print $4}')
-sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set mimic_cxr --evaluate
-SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set chexpert_plus --generate | awk '{print $4}')
-sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set chexpert_plus --evaluate
-SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set rexgradient --generate | awk '{print $4}')
-sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set rexgradient --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set mimic_cxr --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set mimic_cxr --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set chexpert_plus --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set chexpert_plus --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set rexgradient --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 5 --test_set rexgradient --evaluate
 
-SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set mimic_cxr --generate | awk '{print $4}')
-sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set mimic_cxr --evaluate
-SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set chexpert_plus --generate | awk '{print $4}')
-sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set chexpert_plus --evaluate
-SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set rexgradient --generate | awk '{print $4}')
-sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
-    evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set rexgradient --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set mimic_cxr --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set mimic_cxr --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set chexpert_plus --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set chexpert_plus --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set rexgradient --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CXRMate-2 --trial 6 --test_set rexgradient --evaluate
 
 # SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/virga_cxrmate2/bin/activate \
 #     evaluate_checkpoints.slurm --model CXRMate-2 --trial 7 --test_set mimic_cxr --generate | awk '{print $4}')
@@ -63,17 +63,17 @@ sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic26
 # sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_eval_virga/bin/activate \
 #     evaluate_checkpoints.slurm --model MAIRA-2 --test_set chexpert_plus --evaluate
 
-# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_medgemma_virga/bin/activate \
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
 #     evaluate_checkpoints.slurm --model MedGemma --test_set mimic_cxr --generate | awk '{print $4}')
-# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_eval_virga/bin/activate \
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
 #     evaluate_checkpoints.slurm --model MedGemma --test_set mimic_cxr --evaluate
-# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_medgemma_virga/bin/activate \
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
 #     evaluate_checkpoints.slurm --model MedGemma --test_set chexpert_plus --generate | awk '{print $4}')
-# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_eval_virga/bin/activate \
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
 #     evaluate_checkpoints.slurm --model MedGemma --test_set chexpert_plus --evaluate
-# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_medgemma_virga/bin/activate \
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
 #     evaluate_checkpoints.slurm --model MedGemma --test_set rexgradient --generate | awk '{print $4}')
-# sbatch --dependency=afterok:$SLURM_JOB_ID  --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_eval_virga/bin/activate \
+# sbatch --dependency=afterok:$SLURM_JOB_ID  --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
 #     evaluate_checkpoints.slurm --model MedGemma --test_set rexgradient --evaluate
 
 # SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/virga_cxrmate2/bin/activate \
@@ -101,3 +101,48 @@ sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic26
 #     evaluate_checkpoints.slurm --model Libra --test_set chexpert_plus --evaluate
 # sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_eval_virga/bin/activate \
 #     evaluate_checkpoints.slurm --model Libra --test_set rexgradient --evaluate
+
+# sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model PriorRG --test_set mimic_cxr --evaluate
+
+# sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+    # evaluate_checkpoints.slurm --model MLRG --test_set mimic_cxr --evaluate
+
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model MedGemma15 --test_set mimic_cxr --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model MedGemma15 --test_set mimic_cxr --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model MedGemma15 --test_set chexpert_plus --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model MedGemma15 --test_set chexpert_plus --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model MedGemma15 --test_set rexgradient --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID  --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model MedGemma15 --test_set rexgradient --evaluate
+
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CheXOne --test_set mimic_cxr --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CheXOne --test_set mimic_cxr --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CheXOne --test_set chexpert_plus --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CheXOne --test_set chexpert_plus --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CheXOne --test_set rexgradient --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID  --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model CheXOne --test_set rexgradient --evaluate
+
+SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+    evaluate_checkpoints.slurm --model DeepMedixR1 --test_set mimic_cxr --generate | awk '{print $4}')
+sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+    evaluate_checkpoints.slurm --model DeepMedixR1 --test_set mimic_cxr --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model DeepMedixR1 --test_set chexpert_plus --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model DeepMedixR1 --test_set chexpert_plus --evaluate
+# SLURM_JOB_ID=$(sbatch --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model DeepMedixR1 --test_set rexgradient --generate | awk '{print $4}')
+# sbatch --dependency=afterok:$SLURM_JOB_ID  --export=ALL,VENV_PATH=/scratch3/nic261/environments/cxrmate2_virga_final/bin/activate \
+#     evaluate_checkpoints.slurm --model DeepMedixR1 --test_set rexgradient --evaluate

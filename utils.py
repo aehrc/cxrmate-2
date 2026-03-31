@@ -455,7 +455,10 @@ if __name__ == '__main__':
     import sys
     from pathlib import Path
 
-    from command_line_arguments import read_command_line_arguments
+    try:
+        from command_line_arguments import read_command_line_arguments
+    except ImportError:
+        from .command_line_arguments import read_command_line_arguments
 
     cmd_line_args = read_command_line_arguments()
     args = load_config_and_update_args(cmd_line_args=cmd_line_args)

@@ -112,8 +112,6 @@ class CXRMate2ForConditionalGeneration(CXRMate2PreTrainedModel, GenerationMixin)
             hidden_size=config.text_config.hidden_size,
         )  
 
-        self.register_buffer('missing_time_delta_token_id', torch.tensor(self.config.missing_time_delta_token_id), persistent=False)
-
         self.post_init()
 
     def get_input_embeddings(self):
@@ -220,7 +218,7 @@ class CXRMate2ForConditionalGeneration(CXRMate2PreTrainedModel, GenerationMixin)
         missing_time_delta_mask = time_deltas.isnan()
         time_deltas = time_deltas.nan_to_num(0) # Replace NaN with dummy value before projection.
         time_delta_embeddings = self.time_delta_encoder(time_deltas.unsqueeze(-1)) 
-        time_delta_embeddings[missing_time_delta_mask] = self.get_input_embeddings()(self.missing_time_delta_token_id)
+        time_delta_embeddings[missing_time_delta_mask] = self.get_input_embeddings()(torch.tensor(self.config.missing_time_delta_token_id, device=inputs_embeds.device))
         time_delta_embeddings *= time_deltas_mask.unsqueeze(-1)
         inputs_embeds += time_delta_embeddings
 

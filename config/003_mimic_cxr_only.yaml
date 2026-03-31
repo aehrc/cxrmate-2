@@ -57,16 +57,11 @@ enable_gradient_checkpointing: true
 
 train_datasets: 
   - mimic_cxr
-  - chexpert_plus
-  - rexgradient
 
 test_datasets: 
   - mimic_cxr
-  - mimic_cxr_dpo
   - chexpert_plus
   - rexgradient
 
 submit_evaluation_kwargs: 
   time_limit: '2:00:00'
-
-preferences: /datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/cxrmate_ms_retro_stage_1/data/results_11_02_2026.json
