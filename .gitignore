@@ -8,6 +8,9 @@ results/
 *dpo*
 results_final.ipynb
 
+*/environment/*
+*/requirements/*
+
 .idea/
 .vscode/
 .neptune/
