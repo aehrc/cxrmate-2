@@ -46,13 +46,6 @@ Requirements for the environment are in `requirements.txt`
 # Training
 ## Download datasets
 
-MIMIC-CXR and MIMIC-CXR-JPG must be in the same Physio Net directory. E.g.:
-
-```shell
-user@cluster:~$ ls /home/user/physionet.org/files
-mimic-cxr  mimic-cxr-jpg  mimic-iv-ed
-```
-
 Download the MIMIC-CXR-JPG dataset from https://physionet.org/content/mimic-cxr-jpg, e.g.,
 ```shell
 wget -r -N -c -np --user <username> --ask-password https://physionet.org/files/mimic-cxr-jpg/2.1.0/
