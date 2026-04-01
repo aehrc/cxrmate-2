@@ -3,7 +3,7 @@
 This repository provides the code to train the CXRMate-2 model.
 
 ```
-Citation
+Papr coming soon...
 ```
 
 ![CXRMate-2](cxrmate2.drawio.png)
