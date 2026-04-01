@@ -32,8 +32,11 @@ findings, impression = processor.split_and_decode_sections(generated_ids)
 ## Generated reports
 
 CXRMate-2 generated reports:
+
 [MIMIC-CXR - test set](generated_reports/cxrmate2_generated_reports_mimic_cxr_test.csv)
+
 [CheXpert Plus - valid set](generated_reports/cxrmate2_generated_reports_chexpert_plus_valid.csv)
+
 [ReXgradient - test set](generated_reports/cxrmate2_generated_reports_rexgradient_test.csv)
 
 ## Environment
