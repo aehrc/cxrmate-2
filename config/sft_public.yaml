@@ -53,6 +53,5 @@ train_datasets:
 
 test_datasets: 
   - mimic_cxr
-  - mimic_cxr_dpo
   - chexpert_plus
   - rexgradient

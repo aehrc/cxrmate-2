@@ -33,10 +33,28 @@ findings, impression = processor.split_and_decode_sections(generated_ids)
 
 Requirements for the environment are in `requirements.txt`
 
-## Training
+# Training
+## Download datasets
+
+MIMIC-CXR and MIMIC-CXR-JPG must be in the same Physio Net directory. E.g.:
+
 ```shell
-accelerate launch utils.py -t cxrmate2 -c config/sft_public.yaml
+user@cluster:~$ ls /home/user/physionet.org/files
+mimic-cxr  mimic-cxr-jpg  mimic-iv-ed
 ```
+
+Download the MIMIC-CXR-JPG dataset from https://physionet.org/content/mimic-cxr-jpg, e.g.,
+```shell
+wget -r -N -c -np --user <username> --ask-password https://physionet.org/files/mimic-cxr-jpg/2.1.0/
+```
+
+MIMIC-CXR-JPG does not include the radiology reports and are instead included with MIMIC-CXR (the DICOM version of the dataset). To download this dataset and avoid downloading the DICOM files (which are very large), use `--reject dcm` with the wget command from https://physionet.org/content/mimic-cxr, e.g, 
+```shell
+wget -r -N -c -np --reject dcm --user <username> --ask-password https://physionet.org/files/mimic-cxr/2.0.0/
+```
+Note that you must be a credentialised user to access MIMIC-CXR/MIMIC-CXR-JPG.
+
+CheXpert Plus can be downloaded from: https://aimi.stanford.edu/datasets/chexpert-plus.
 
 ## Prepare datasets:
 
@@ -58,30 +76,9 @@ python prepare_datasets/prepare_rexgradient.py
 ```
 Note that this script also downloads https://huggingface.co/datasets/rajpurkarlab/ReXGradient-160K.
 
-## Download Datasets
+## Training
 
-### MIMIC-CXR:
-
-MIMIC-CXR and MIMIC-CXR-JPG must be in the same Physio Net directory. E.g.:
-
+First train the SFT model:
 ```shell
-user@cluster:~$ ls /home/user/physionet.org/files
-mimic-cxr  mimic-cxr-jpg  mimic-iv-ed
+accelerate launch utils.py -t cxrmate2 -c config/sft_public.yaml
 ```
-
-#### Download MIMIC-CXR-JPG:
-Download the MIMIC-CXR-JPG dataset from https://physionet.org/content/mimic-cxr-jpg, e.g.,
-```shell
-wget -r -N -c -np --user <username> --ask-password https://physionet.org/files/mimic-cxr-jpg/2.1.0/
-```
-Note that you must be a credentialised user to access this dataset.
-
-#### Download the reports from MIMIC-CXR:
-MIMIC-CXR-JPG does not include the radiology reports and are instead included with MIMIC-CXR (the DICOM version of the dataset). To download this dataset and avoid downloading the DICOM files (which are very large), use `--reject dcm` with the wget command from https://physionet.org/content/mimic-cxr, e.g, 
-```shell
-wget -r -N -c -np --reject dcm --user <username> --ask-password https://physionet.org/files/mimic-cxr/2.0.0/
-```
-Note that you must be a credentialised user to access this dataset.
-
-### CheXpert Plus
-https://aimi.stanford.edu/datasets/chexpert-plus
