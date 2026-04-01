@@ -235,6 +235,8 @@ class Stages(BaseStages):
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
                 elif self.findings_and_impression_strategy == 'and':
                     indices = df[df[['findings', 'impression']].isnull().any(axis=1)].index.tolist()  # Consider studies with findings AND impression section.
+                elif self.findings_and_impression_strategy == 'all':
+                    indices = []  # Consider all studies.
 
                 indices = list(set(range(len(train_set))) - set(indices))
 
@@ -260,6 +262,8 @@ class Stages(BaseStages):
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
                 elif self.findings_and_impression_strategy == 'and':
                     indices = df[df[['findings', 'impression']].isnull().any(axis=1)].index.tolist()  # Consider studies with findings AND impression section.
+                elif self.findings_and_impression_strategy == 'all':
+                    indices = []  # Consider all studies.
                 indices = list(set(range(len(train_set_chexpert_plus))) - set(indices))
                 train_set_chexpert_plus = CXRMate2Dataset(train_set_chexpert_plus, self.history)
                 train_set_chexpert_plus = Subset(train_set_chexpert_plus, indices)
@@ -283,6 +287,8 @@ class Stages(BaseStages):
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
                 elif self.findings_and_impression_strategy == 'and':
                     indices = df[df[['findings', 'impression']].isnull().any(axis=1)].index.tolist()  # Consider studies with findings AND impression section.
+                elif self.findings_and_impression_strategy == 'all':
+                    indices = []  # Consider all studies.
                 indices = list(set(range(len(train_set_rexgradient))) - set(indices))
                 train_set_rexgradient = CXRMate2Dataset(train_set_rexgradient, self.history)
                 train_set_rexgradient = Subset(train_set_rexgradient, indices)
@@ -331,6 +337,8 @@ class Stages(BaseStages):
                 indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
             elif self.findings_and_impression_strategy == 'and':
                 indices = df[df[['findings', 'impression']].isnull().any(axis=1)].index.tolist()  # Consider studies with findings AND impression section.
+            elif self.findings_and_impression_strategy == 'all':
+                indices = []  # Consider all studies.
 
             val_set = CXRMate2Dataset(val_set, self.history)    
             indices = list(set(range(len(val_set))) - set(indices))
@@ -370,6 +378,8 @@ class Stages(BaseStages):
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
                 elif self.findings_and_impression_strategy == 'and':
                     indices = df[df[['findings', 'impression']].isnull().any(axis=1)].index.tolist()  # Consider studies with findings AND impression section.
+                elif self.findings_and_impression_strategy == 'all':
+                    indices = []  # Consider all studies.
 
                 test_set = CXRMate2Dataset(test_set, self.history)  
                 indices = list(set(range(len(test_set))) - set(indices))  
@@ -412,6 +422,8 @@ class Stages(BaseStages):
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
                 elif self.findings_and_impression_strategy == 'and':
                     indices = df[df[['findings', 'impression']].isnull().any(axis=1)].index.tolist()  # Consider studies with findings AND impression section.
+                elif self.findings_and_impression_strategy == 'all':
+                    indices = []  # Consider all studies.
 
                 test_set_mimic_cxr_dpo = CXRMate2Dataset(test_set_mimic_cxr_dpo, self.history)  
                 indices = list(set(range(len(test_set_mimic_cxr_dpo))) - set(indices))  
@@ -448,6 +460,8 @@ class Stages(BaseStages):
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
                 elif self.findings_and_impression_strategy == 'and':
                     indices = df[df[['findings', 'impression']].isnull().any(axis=1)].index.tolist()  # Consider studies with findings AND impression section.
+                elif self.findings_and_impression_strategy == 'all':
+                    indices = []  # Consider all studies.
                 indices = list(set(range(len(test_set_chexpert_plus))) - set(indices))
                 test_set_chexpert_plus = CXRMate2Dataset(test_set_chexpert_plus, self.history)
                 test_set_chexpert_plus = ConcatDataset([Subset(test_set_chexpert_plus, indices)])
@@ -484,6 +498,8 @@ class Stages(BaseStages):
                     indices = df[df[['findings', 'impression']].isnull().all(axis=1)].index.tolist()  # Consider studies with findings OR impression section.
                 elif self.findings_and_impression_strategy == 'and':
                     indices = df[df[['findings', 'impression']].isnull().any(axis=1)].index.tolist()  # Consider studies with findings AND impression section.
+                elif self.findings_and_impression_strategy == 'all':
+                    indices = []  # Consider all studies.
                 indices = list(set(range(len(test_set_rexgradient))) - set(indices))
                 test_set_rexgradient = CXRMate2Dataset(test_set_rexgradient, self.history)
                 test_set_rexgradient = ConcatDataset([Subset(test_set_rexgradient, indices)])
