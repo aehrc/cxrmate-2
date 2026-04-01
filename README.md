@@ -6,7 +6,7 @@ This repository provides the code to train the CXRMate-2 model.
 Citation
 ```
 
-![CXRMate-2](cxrmate2.drawio.pdf)
+![CXRMate-2](cxrmate2.drawio.png)
 
 ## Download model
 The model is available on Hugging Face Hub: https://huggingface.co/aehrc/cxrmate-2
