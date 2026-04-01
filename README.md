@@ -85,3 +85,7 @@ First train the SFT model:
 ```shell
 accelerate launch utils.py -t cxrmate2 -c config/sft_public.yaml
 ```
+Then train the GRPO model:
+```shell
+accelerate launch utils.py -t cxrmate2 -c config/grpo_public.yaml
+```
