@@ -30,11 +30,36 @@ findings, impression = processor.split_and_decode_sections(generated_ids)
 
 ## Environment
 
+Requirements for the environment are in `requirements.txt`
+
 ## Training
+```shell
+accelerate launch utils.py -t cxrmate2 -c config/sft_public.yaml
+```
+
+## Prepare datasets:
+
+The following scripts prepare each dataset into a HuggingFace `DatasetDict` saved to `database_dir`. Each script accepts `--database_dir` (default: `database`) and `--num_workers` (default: `4`).
+
+### MIMIC-CXR-JPG:
+```shell
+python prepare_datasets/prepare_mimic_cxr_jpg.py --physionet_dir <physionet_dir>
+```
+
+### CheXpert Plus:
+```shell
+python prepare_datasets/prepare_chexpert_plus.py --chexpert_plus_dir <chexpert_plus_dir>
+```
+
+### ReXGradient-160K:
+```shell
+python prepare_datasets/prepare_rexgradient.py
+```
+Note that this script also downloads https://huggingface.co/datasets/rajpurkarlab/ReXGradient-160K.
 
 ## Download Datasets
 
-#### MIMIC-CXR:
+### MIMIC-CXR:
 
 MIMIC-CXR and MIMIC-CXR-JPG must be in the same Physio Net directory. E.g.:
 
@@ -43,18 +68,19 @@ user@cluster:~$ ls /home/user/physionet.org/files
 mimic-cxr  mimic-cxr-jpg  mimic-iv-ed
 ```
 
-### Download MIMIC-CXR-JPG:
+#### Download MIMIC-CXR-JPG:
 Download the MIMIC-CXR-JPG dataset from https://physionet.org/content/mimic-cxr-jpg, e.g.,
 ```shell
 wget -r -N -c -np --user <username> --ask-password https://physionet.org/files/mimic-cxr-jpg/2.1.0/
 ```
 Note that you must be a credentialised user to access this dataset.
 
-### Download the reports from MIMIC-CXR:
+#### Download the reports from MIMIC-CXR:
 MIMIC-CXR-JPG does not include the radiology reports and are instead included with MIMIC-CXR (the DICOM version of the dataset). To download this dataset and avoid downloading the DICOM files (which are very large), use `--reject dcm` with the wget command from https://physionet.org/content/mimic-cxr, e.g, 
 ```shell
 wget -r -N -c -np --reject dcm --user <username> --ask-password https://physionet.org/files/mimic-cxr/2.0.0/
 ```
 Note that you must be a credentialised user to access this dataset.
 
-## Prepare datasets:
+### CheXpert Plus
+https://aimi.stanford.edu/datasets/chexpert-plus

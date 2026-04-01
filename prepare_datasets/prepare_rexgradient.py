@@ -1,4 +1,5 @@
 
+import argparse
 import glob
 import io
 import multiprocessing
@@ -127,9 +128,12 @@ def prepare_dataset(database_dir, num_workers=None):
     dataset.save_to_disk(os.path.join(database_dir, 'rexgradient_160k_dataset'))
     
 if __name__ == '__main__':
-    database_dir = '/scratch3/nic261/database/cxrmate2'  # Where the resultant database will be stored.
+    parser = argparse.ArgumentParser(description='Prepare the ReXGradient-160K dataset.')
+    parser.add_argument('--database_dir', type=str, default='database', help='Directory where the resultant database will be stored.')
+    parser.add_argument('--num_workers', type=int, default=4, help='Number of worker processes (default: 4).')
+    args = parser.parse_args()
 
     prepare_dataset(
-        database_dir=database_dir,
-        num_workers=4,
+        database_dir=args.database_dir,
+        num_workers=args.num_workers,
     )

@@ -1,0 +1,58 @@
+prefetch_factor: 2
+
+findings_and_impression_strategy: 'and'
+
+demographics: False
+
+exp_dir: experiments
+database_dir: database
+email: aaron.nicolson@csiro.au
+
+log_loss_every_n_steps: 50
+
+stages_module: stages_cxrmate2.py
+
+num_q_adapter_queries: 128
+num_q_adapter_layers: 2
+
+max_generated_tokens: 320
+
+max_train_images_per_study: 5
+
+history: 1
+
+num_nodes: 1
+
+language_model_ckpt_alias: meta-llama/Llama-3.2-3B
+  
+num_epochs: 5
+optimiser_kwargs:
+  lr: 5e-5
+num_cycles: 5
+num_warmup_steps: 500
+train_mbatch_size: 2
+val_mbatch_size: 2
+test_mbatch_size: 1
+
+set_special_tokens: 
+  sep_token: '<|reserved_special_token_64|>'
+  pad_token: '<|reserved_special_token_65|>'
+
+accelerate_config: config/accelerate_config/ddp.yaml
+evaluate_accelerate_config: config/accelerate_config/ddp.yaml
+
+monitor: val_findings_ratescore_ratescore
+monitor_mode: max
+
+enable_gradient_checkpointing: true
+
+train_datasets: 
+  - mimic_cxr
+  - chexpert_plus
+  - rexgradient
+
+test_datasets: 
+  - mimic_cxr
+  - mimic_cxr_dpo
+  - chexpert_plus
+  - rexgradient

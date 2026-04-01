@@ -1,3 +1,4 @@
+import argparse
 import gc
 import multiprocessing
 import os
@@ -285,12 +286,18 @@ class PrepareDataset:
 
 
 if __name__ == '__main__':
-
-    physionet_dir = '/datasets/work/hb-mlaifsp-mm/work/data/physionet.org/files'  # Where MIMIC-CXR, MIMIC-CXR-JPG, and MIMIC-IV-ED are stored.
-    database_dir = f'/scratch3/nic261/database/cxrmate2'  # Where the resultant database will be stored.
+    parser = argparse.ArgumentParser(description='Prepare the MIMIC-CXR-JPG dataset.')
+    parser.add_argument('--physionet_dir', type=str, required=True, help='Directory where MIMIC-CXR, MIMIC-CXR-JPG, and MIMIC-IV-ED are stored.')
+    parser.add_argument('--database_dir', type=str, default='database', help='Directory where the resultant database will be stored.')
+    parser.add_argument('--num_workers', type=int, default=4, help='Number of worker processes (default: 4).')
+    parser.add_argument('--mimic_cxr_ver', type=str, default='2.0.0', help='MIMIC-CXR-JPG version (default: 2.0.0).')
+    parser.add_argument('--splits', type=str, nargs='+', default=['test', 'validate', 'train'], help='Dataset splits to process (default: test validate train).')
+    args = parser.parse_args()
 
     PrepareDataset(
-        physionet_dir=physionet_dir, 
-        database_dir=database_dir, 
-        num_workers=4,
+        physionet_dir=args.physionet_dir,
+        database_dir=args.database_dir,
+        num_workers=args.num_workers,
+        mimic_cxr_ver=args.mimic_cxr_ver,
+        splits=args.splits,
     )()

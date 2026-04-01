@@ -1,3 +1,4 @@
+import argparse
 import multiprocessing
 import os
 import re
@@ -263,11 +264,14 @@ def prepare_dataset(chexpert_plus_dir, database_dir, num_workers=None):
     con.close()
 
 if __name__ == '__main__':
-    chexpert_plus_dir = '/datasets/work/hb-mlaifsp-mm/work/repositories/25_cxrmate2/work/data/chexpertplus'  # Where the CheXpert Plus DICOM directory, PNG directory, and df_chexpert_plus_240401.csv file are stored.
-    database_dir = '/scratch3/nic261/database/cxrmate2'  # Where the resultant database will be stored.
+    parser = argparse.ArgumentParser(description='Prepare the CheXpert Plus dataset.')
+    parser.add_argument('--chexpert_plus_dir', type=str, required=True, help='Directory containing the CheXpert Plus DICOM directory, PNG directory, and df_chexpert_plus_240401.csv file.')
+    parser.add_argument('--database_dir', type=str, default='database', help='Directory where the resultant database will be stored.')
+    parser.add_argument('--num_workers', type=int, default=4, help='Number of worker processes (default: 4).')
+    args = parser.parse_args()
 
     prepare_dataset(
-        chexpert_plus_dir=chexpert_plus_dir, 
-        database_dir=database_dir,
-        num_workers=4,
+        chexpert_plus_dir=args.chexpert_plus_dir,
+        database_dir=args.database_dir,
+        num_workers=args.num_workers,
     )
