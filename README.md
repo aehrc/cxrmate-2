@@ -1,9 +1,17 @@
-# CXRMate-2
+# CXRMate-2: Structured Multimodal Temporal Embeddings and Tractable Reinforcement Learning for Clinically Acceptable Chest X-ray Radiology Report Generation
 
 This repository provides the code to train the CXRMate-2 model.
 
 ```
-Papr coming soon...
+@misc{nicolson2026clinicallyacceptablechestxray,
+      title={CXRMate-2: Structured Multimodal Temporal Embeddings and Tractable Reinforcement Learning for Clinically Acceptable Chest X-ray Radiology Report Generation}, 
+      author={Aaron Nicolson and Elizabeth J. Cooper and Hwan-Jin Yoon and Claire McCafferty and Ramya Krishnan and Michelle Craigie and Nivene Saad and Jason Dowling and Ian A. Scott and Bevan Koopman},
+      year={2026},
+      eprint={2604.18967},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2604.18967}, 
+}
 ```
 
 ![CXRMate-2](cxrmate2.drawio.png)
